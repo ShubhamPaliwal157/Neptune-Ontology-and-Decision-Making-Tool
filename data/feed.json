@@ -1,0 +1,272 @@
+[
+  {
+    "type": "SIGNAL",
+    "domain": "technology",
+    "node": "AI_RACE",
+    "text": "OpenAI signs exclusive DOD contract. AI superiority gap between US-China widening. India unrepresented.",
+    "confidence": 90,
+    "id": 20,
+    "timestamp": "11:47:08"
+  },
+  {
+    "type": "DIPLOMATIC",
+    "domain": "geopolitics",
+    "node": "EU",
+    "text": "EU proposes India-EU free trade corridor bypassing China's Belt & Road. Negotiations begin Q2.",
+    "confidence": 82,
+    "id": 29,
+    "timestamp": "11:36:08"
+  },
+  {
+    "type": "CYBER",
+    "domain": "defense",
+    "node": "DISINFORMATION",
+    "text": "400 coordinated inauthentic accounts spreading false India-Pakistan ceasefire narrative identified on X.",
+    "confidence": 84,
+    "id": 15,
+    "timestamp": "11:17:08"
+  },
+  {
+    "type": "SIGNAL",
+    "domain": "defense",
+    "node": "DRONE_WARFARE",
+    "text": "India approves domestic drone swarm program. Budget: \u20b912,000 Cr. Delivery: 18 months.",
+    "confidence": 91,
+    "id": 25,
+    "timestamp": "11:55:08"
+  },
+  {
+    "type": "CLIMATE",
+    "domain": "climate",
+    "node": "FOOD_SECURITY",
+    "text": "UN FAO: India wheat export ban enters 3rd year. Global food price index rises 8% MoM.",
+    "confidence": 86,
+    "id": 21,
+    "timestamp": "10:58:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "RUS",
+    "text": "Russia redirects 40% of Arctic LNG to India after EU sanctions. Price: 14% below market.",
+    "confidence": 83,
+    "id": 10,
+    "timestamp": "12:30:08"
+  },
+  {
+    "type": "CLIMATE",
+    "domain": "climate",
+    "node": "MONSOON",
+    "text": "IMD: Monsoon deficit 23% in Kharif belt. Agricultural output risk: HIGH. 3 states in red zone.",
+    "confidence": 88,
+    "id": 5,
+    "timestamp": "12:49:08"
+  },
+  {
+    "type": "CLIMATE",
+    "domain": "climate",
+    "node": "CLIMATE_CRISIS",
+    "text": "IPCC emergency bulletin: South Asia heat stress index at record high. 3 consecutive years above threshold.",
+    "confidence": 92,
+    "id": 14,
+    "timestamp": "10:35:08"
+  },
+  {
+    "type": "DIPLOMATIC",
+    "domain": "geopolitics",
+    "node": "BRICS",
+    "text": "BRICS summit agenda leaked: INR trade settlement to be formally proposed by India in October.",
+    "confidence": 76,
+    "id": 12,
+    "timestamp": "11:19:08"
+  },
+  {
+    "type": "GEOPOLITICAL",
+    "domain": "geopolitics",
+    "node": "PAK",
+    "text": "Pakistan army chief meets ISI + Chinese ambassador \u2014 4hr closed session, Islamabad",
+    "confidence": 71,
+    "id": 8,
+    "timestamp": "13:00:08"
+  },
+  {
+    "type": "DIPLOMATIC",
+    "domain": "geopolitics",
+    "node": "SCO",
+    "text": "SCO foreign ministers meet: India blocks China's Belt & Road inclusion in joint communique.",
+    "confidence": 85,
+    "id": 18,
+    "timestamp": "11:29:08"
+  },
+  {
+    "type": "GEOPOLITICAL",
+    "domain": "geopolitics",
+    "node": "UKR",
+    "text": "Ukraine drone strike hits Russian oil depot \u2014 3rd this week. Global oil supply impact: +$2.1/barrel.",
+    "confidence": 93,
+    "id": 24,
+    "timestamp": "11:59:08"
+  },
+  {
+    "type": "THREAT",
+    "domain": "defense",
+    "node": "KASHMIR",
+    "text": "Cross-LoC firing incidents: +47% YoY. Pakistani artillery shelling resumed in 3 sectors.",
+    "confidence": 96,
+    "id": 30,
+    "timestamp": "10:45:08"
+  },
+  {
+    "type": "DIPLOMATIC",
+    "domain": "geopolitics",
+    "node": "QUAD",
+    "text": "US Deputy SecState arrives New Delhi \u2014 agenda: QUAD expansion, AI governance framework",
+    "confidence": 91,
+    "id": 4,
+    "timestamp": "11:01:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "INFLATION",
+    "text": "INR hits 84.6/USD. RBI intervention signals. FII outflows: $2.1B this week.",
+    "confidence": 97,
+    "id": 7,
+    "timestamp": "12:31:08"
+  },
+  {
+    "type": "THREAT",
+    "domain": "defense",
+    "node": "CHN",
+    "text": "PLA naval vessels detected near Andaman Islands \u2014 3 destroyers, AIS disabled",
+    "confidence": 87,
+    "id": 1,
+    "timestamp": "11:51:08"
+  },
+  {
+    "type": "SPACE",
+    "domain": "technology",
+    "node": "ISRO",
+    "text": "ISRO Gaganyaan abort test successful. India 3rd nation with crewed abort capability.",
+    "confidence": 99,
+    "id": 9,
+    "timestamp": "13:12:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "OIL_SUPPLY",
+    "text": "Brent crude +4.2% after OPEC+ emergency meeting. India import cost impact: \u20b928,000 Cr/month",
+    "confidence": 96,
+    "id": 2,
+    "timestamp": "11:57:08"
+  },
+  {
+    "type": "SIGNAL",
+    "domain": "economics",
+    "node": "RARE_EARTH",
+    "text": "China restricts gallium and germanium exports \u2014 4 materials India depends on for defense production.",
+    "confidence": 93,
+    "id": 13,
+    "timestamp": "10:39:08"
+  },
+  {
+    "type": "CYBER",
+    "domain": "defense",
+    "node": "NSA",
+    "text": "NSA shares SIGINT on Chinese infiltration of Indian telecom backbone with RAW. 3 nodes compromised.",
+    "confidence": 78,
+    "id": 27,
+    "timestamp": "12:40:08"
+  },
+  {
+    "type": "GEOPOLITICAL",
+    "domain": "geopolitics",
+    "node": "TWN",
+    "text": "Taiwan Strait: PLAN conducts unannounced live-fire exercises. US 7th Fleet repositioning.",
+    "confidence": 89,
+    "id": 16,
+    "timestamp": "13:12:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "OPEC",
+    "text": "OPEC+ cuts production by 1.5M bpd. India dependency ratio increases to 87% import-sourced.",
+    "confidence": 94,
+    "id": 26,
+    "timestamp": "10:40:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "FINANCIAL_CRISIS",
+    "text": "Credit Suisse successor bank flags $4.2T derivatives exposure. Contagion risk: MEDIUM-HIGH.",
+    "confidence": 72,
+    "id": 22,
+    "timestamp": "11:04:08"
+  },
+  {
+    "type": "ECONOMIC",
+    "domain": "economics",
+    "node": "DEDOLLARIZATION",
+    "text": "14 nations formally express interest in INR settlement. Saudi Arabia in preliminary talks.",
+    "confidence": 77,
+    "id": 17,
+    "timestamp": "10:55:08"
+  },
+  {
+    "type": "DIPLOMATIC",
+    "domain": "geopolitics",
+    "node": "USA",
+    "text": "White House confirms India iCET semiconductor package \u2014 decision window: 30 days.",
+    "confidence": 95,
+    "id": 23,
+    "timestamp": "12:39:08"
+  },
+  {
+    "type": "SIGNAL",
+    "domain": "technology",
+    "node": "SEMICONDUCTORS",
+    "text": "China files 847 new semiconductor patents this week. India: 12. Gap widening at accelerating rate.",
+    "confidence": 94,
+    "id": 3,
+    "timestamp": "12:43:08"
+  },
+  {
+    "type": "THREAT",
+    "domain": "defense",
+    "node": "LAC_BORDER",
+    "text": "Satellite imagery shows new PLA forward logistics base 40km from LAC \u2014 Depsang sector.",
+    "confidence": 81,
+    "id": 11,
+    "timestamp": "11:56:08"
+  },
+  {
+    "type": "THREAT",
+    "domain": "defense",
+    "node": "NUCLEAR_WEAPONS",
+    "text": "Pakistan test-fires Shaheen-III MRBM. Range covers all Indian cities. 3rd test this year.",
+    "confidence": 98,
+    "id": 19,
+    "timestamp": "12:43:08"
+  },
+  {
+    "type": "CLIMATE",
+    "domain": "climate",
+    "node": "WATER_SCARCITY",
+    "text": "Cauvery basin water level at 34% \u2014 lowest since 1974. Inter-state water dispute escalating.",
+    "confidence": 88,
+    "id": 28,
+    "timestamp": "12:56:08"
+  },
+  {
+    "type": "CYBER",
+    "domain": "defense",
+    "node": "CYBER_WARFARE",
+    "text": "APT41 lateral movement detected in 2 Indian PSU networks. Pattern matches 2022 AIIMS attack.",
+    "confidence": 79,
+    "id": 6,
+    "timestamp": "12:36:08"
+  }
+]
