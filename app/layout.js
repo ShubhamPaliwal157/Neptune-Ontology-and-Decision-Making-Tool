@@ -16,6 +16,10 @@ const bebasNeue = Bebas_Neue({
 export const metadata = {
   title: 'Neptune — Global Intelligence Engine',
   description: 'AI-powered ontology and decision intelligence platform',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 }
 
 export default function RootLayout({ children }) {
