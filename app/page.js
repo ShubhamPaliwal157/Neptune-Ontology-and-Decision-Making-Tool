@@ -1,44 +1,11 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import Sidebar from '@/components/ui/Sidebar'
 import GraphCanvas from '@/components/graph/GraphCanvas'
 import FeedPanel from '@/components/ui/FeedPanel'
 import NodePanel from '@/components/graph/NodePanel'
 import DecisionWorkspace from '@/components/workspace/DecisionWorkspace'
-
-function StarField() {
-  const canvasRef = useRef(null)
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    canvas.width  = window.innerWidth
-    canvas.height = window.innerHeight
-    const stars = Array.from({ length: 180 }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: Math.random() * 1.1,
-      o: Math.random() * 0.5 + 0.1,
-      speed: Math.random() * 0.008 + 0.002
-    }))
-    let frame, t = 0
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      t += 1
-      stars.forEach(s => {
-        ctx.beginPath()
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
-        const pulse = s.o + Math.sin(t * s.speed + s.x) * 0.15
-        ctx.fillStyle = `rgba(168,210,255,${Math.min(0.75, Math.max(0.05, pulse))})`
-        ctx.fill()
-      })
-      frame = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => cancelAnimationFrame(frame)
-  }, [])
-  return <canvas ref={canvasRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none' }} />
-}
+import NeptuneBackground from '@/components/ui/NeptuneBackground'
 
 export default function Home() {
   const [dismissed, setDismissed] = useState(false)
@@ -49,29 +16,21 @@ export default function Home() {
   return (
     <main style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: 'var(--bg-base)' }}>
 
-      <StarField />
+      <NeptuneBackground />
 
       {/* ── MODAL ── */}
       {!dismissed && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 100,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(4,6,14,0.88)',
-          backdropFilter: 'blur(16px)',
         }}>
           <div style={{
-            position: 'absolute', width: 600, height: 600,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(37,88,184,0.1) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }} />
-
-          <div style={{
             position: 'relative', zIndex: 1, width: 460,
-            background: 'linear-gradient(160deg, #0b1228 0%, #080d1f 100%)',
+            background: 'linear-gradient(160deg, rgba(11,18,40,0.92) 0%, rgba(8,13,31,0.92) 100%)',
             border: '1px solid rgba(100,160,240,0.14)',
             borderTop: '2px solid rgba(61,123,212,0.5)',
             padding: '40px 44px 36px',
+            backdropFilter: 'blur(18px)',
             animation: 'modal-rise 0.6s cubic-bezier(0.16,1,0.3,1) forwards',
           }}>
 
