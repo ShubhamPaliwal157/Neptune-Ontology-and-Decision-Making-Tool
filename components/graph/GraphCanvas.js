@@ -42,6 +42,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
   const stateRef  = useRef({
     nodes: [], edges: [],
     rot: { x: 0.3, y: 0 },
+    vel: { x: 0, y: 0 },
     drag: { active: false, lastX: 0, lastY: 0 },
     autoRotate: true,
     zoom: 1,
@@ -157,7 +158,18 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
     const draw = () => {
       const s = stateRef.current
       s.t += 1
-      if (s.autoRotate) s.rot.y += 0.0012
+
+      // Inertia: apply velocity when not dragging, decay it
+      if (!s.drag.active) {
+        if (Math.abs(s.vel.y) > 0.0001 || Math.abs(s.vel.x) > 0.0001) {
+          s.rot.y += s.vel.y
+          s.rot.x = Math.max(-0.8, Math.min(0.8, s.rot.x + s.vel.x))
+          s.vel.y *= 0.93
+          s.vel.x *= 0.93
+        } else if (s.autoRotate) {
+          s.rot.y += 0.0012
+        }
+      }
 
       if (s.revealIndex < s.edges.length && s.t % 6 === 0) {
         s.revealIndex = Math.min(s.revealIndex + 4, s.edges.length)
@@ -237,9 +249,9 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
           ctx.lineWidth   = 0.5
           ctx.stroke()
         } else {
-          // Regular edge — more visible than before
-          ctx.strokeStyle = color + '30'
-          ctx.lineWidth   = 0.7
+          // Regular edge — visible but not dominant
+          ctx.strokeStyle = color + '55'
+          ctx.lineWidth   = 0.9
           ctx.stroke()
         }
       })
@@ -388,6 +400,9 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
       const dy = e.clientY - s.drag.lastY
       s.rot.y += dx * 0.004
       s.rot.x  = Math.max(-0.8, Math.min(0.8, s.rot.x + dy * 0.004))
+      // Track velocity for inertia
+      s.vel.y = dx * 0.004
+      s.vel.x = dy * 0.004
       s.drag.lastX = e.clientX
       s.drag.lastY = e.clientY
       s.autoRotate = false
@@ -399,8 +414,10 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
   }
 
   const onMouseDown  = (e) => {
-    stateRef.current.drag = { active: true, lastX: e.clientX, lastY: e.clientY }
-    stateRef.current.autoRotate = false
+    const s = stateRef.current
+    s.drag = { active: true, lastX: e.clientX, lastY: e.clientY }
+    s.vel  = { x: 0, y: 0 }
+    s.autoRotate = false
   }
   const onMouseUp    = () => { stateRef.current.drag.active = false }
   const onMouseLeave = () => {

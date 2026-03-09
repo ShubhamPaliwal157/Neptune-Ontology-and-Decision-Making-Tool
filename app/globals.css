@@ -8,20 +8,21 @@
   --bg-panel:      #080d1f;
   --bg-card:       #0b1228;
   --bg-hover:      #0f1835;
-  --border:        rgba(58,110,200,0.1);
-  --border-mid:    rgba(100,160,240,0.15);
-  --border-bright: rgba(168,210,255,0.22);
+  --border:        rgba(58,110,200,0.14);
+  --border-mid:    rgba(100,160,240,0.22);
+  --border-bright: rgba(168,210,255,0.32);
 
   --neptune-core:  #2558b8;
   --neptune-mid:   #3d7bd4;
   --neptune-light: #7aaeee;
-  --neptune-pale:  #a8cef5;
+  --neptune-pale:  #c8e4ff;
   --neptune-glow:  rgba(61,123,212,0.18);
   --neptune-ring:  rgba(168,210,255,0.1);
 
-  --text-primary:  #c8ddf5;
-  --text-secondary:#4a6b8a;
-  --text-dim:      #1e3050;
+  /* Text — bumped up significantly for readability */
+  --text-primary:   #ddeeff;
+  --text-secondary: #7a9fbe;
+  --text-dim:       #3a5878;
 
   --red:     #c94040;
   --orange:  #c87c3a;
@@ -39,8 +40,8 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 13px;       /* up from 12px */
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
