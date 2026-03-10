@@ -1,5 +1,6 @@
 import { IBM_Plex_Mono, Bebas_Neue } from 'next/font/google'
 import './globals.css'
+import { AuthProvider } from '@/context/AuthContext'
 
 const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
@@ -26,7 +27,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${ibmPlexMono.variable} ${bebasNeue.variable}`} suppressHydrationWarning>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )
