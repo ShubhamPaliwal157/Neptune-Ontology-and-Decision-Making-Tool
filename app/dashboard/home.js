@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { withAuth } from '@/app/dashboard/page'
+import { withAuth } from '@/app/dashboard/withAuth'
 
 function Stars() {
   const ref = useRef(null)
@@ -42,111 +42,192 @@ const DOMAIN_COLORS = {
   technology: '#3d7bd4', climate: '#2a9e58', society: '#7050b8',
 }
 
-function WorkspaceCard({ workspace, size = 'normal' }) {
+function WorkspaceCard({ workspace, size = 'normal', onDelete }) {
   const isLarge = size === 'large'
   const domains = workspace.domains || []
   const lastOpened = workspace.last_opened_at
     ? new Date(workspace.last_opened_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })
     : 'Never opened'
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   return (
-    <Link href={`/workspace/${workspace.id}`} style={{ textDecoration: 'none' }}>
-      <div
-        style={{
-          background: 'linear-gradient(135deg, rgba(11,18,40,0.9) 0%, rgba(7,11,28,0.95) 100%)',
-          border: '1px solid rgba(58,110,200,0.2)',
-          borderTop: '2px solid rgba(61,123,212,0.45)',
-          padding: isLarge ? '24px' : '18px 20px',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          position: 'relative',
-          overflow: 'hidden',
-          height: isLarge ? 210 : 170,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'
-          e.currentTarget.style.transform = 'translateY(-2px)'
-          e.currentTarget.style.boxShadow = '0 8px 32px rgba(61,123,212,0.15)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'
-          e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow = 'none'
-        }}
-      >
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 60,
-          background: 'linear-gradient(180deg, rgba(61,123,212,0.07) 0%, transparent 100%)',
-          pointerEvents: 'none',
-        }} />
+    <div style={{ position: 'relative' }}>
 
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <div style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: workspace.is_active ? '#2a9e58' : '#4a6b8a',
-              boxShadow: workspace.is_active ? '0 0 6px #2a9e58' : 'none',
-            }} />
-            <span style={{ fontSize: 11, letterSpacing: 1, color: '#6a9aba' }}>
-              {workspace.is_collaborative ? '◈ COLLABORATIVE' : '○ PERSONAL'}
-            </span>
-            {workspace.member_count > 1 && (
-              <span style={{ fontSize: 11, color: '#5a8ec4' }}>
-                · {workspace.member_count} members
+      {/* 3-dot menu button */}
+      <button
+        onClick={e => { e.preventDefault(); e.stopPropagation(); setMenuOpen(o => !o); setConfirming(false) }}
+        style={{
+          position: 'absolute', top: 10, right: 10, zIndex: 20,
+          width: 28, height: 28,
+          background: menuOpen ? 'rgba(61,123,212,0.15)' : 'transparent',
+          border: '1px solid ' + (menuOpen ? 'rgba(61,123,212,0.4)' : 'transparent'),
+          color: '#6a9aba', fontSize: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', transition: 'all 0.15s', borderRadius: 2,
+          letterSpacing: 2, paddingBottom: 4,
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(61,123,212,0.15)'; e.currentTarget.style.borderColor = 'rgba(61,123,212,0.4)' }}
+        onMouseLeave={e => { if (!menuOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent' } }}
+      >
+        &middot;&middot;&middot;
+      </button>
+
+      {/* Dropdown */}
+      {menuOpen && (
+        <div
+          style={{
+            position: 'absolute', top: 42, right: 10, zIndex: 30,
+            background: 'rgba(7,11,28,0.97)',
+            border: '1px solid rgba(58,110,200,0.25)',
+            minWidth: 165, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          }}
+          onMouseLeave={() => { setMenuOpen(false); setConfirming(false) }}
+        >
+          {!confirming ? (
+            <button
+              onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirming(true) }}
+              style={{
+                width: '100%', padding: '10px 14px', background: 'transparent',
+                border: 'none', color: '#c94040', fontSize: 11, letterSpacing: 1,
+                textAlign: 'left', cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,64,64,0.08)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <span style={{ fontSize: 11 }}>&#x2715;</span> DELETE WORKSPACE
+            </button>
+          ) : (
+            <div style={{ padding: '10px 14px' }}>
+              <div style={{ fontSize: 10, color: '#8ab0d4', marginBottom: 8, letterSpacing: 0.5 }}>
+                This cannot be undone.
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={e => {
+                    e.preventDefault(); e.stopPropagation()
+                    setMenuOpen(false); setConfirming(false)
+                    onDelete && onDelete(workspace.id)
+                  }}
+                  style={{
+                    flex: 1, padding: '6px 0', background: 'rgba(201,64,64,0.15)',
+                    border: '1px solid rgba(201,64,64,0.4)', color: '#c94040',
+                    fontSize: 10, letterSpacing: 1, cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                  }}
+                >CONFIRM</button>
+                <button
+                  onClick={e => { e.preventDefault(); e.stopPropagation(); setConfirming(false) }}
+                  style={{
+                    flex: 1, padding: '6px 0', background: 'transparent',
+                    border: '1px solid rgba(58,110,200,0.25)', color: '#6a9aba',
+                    fontSize: 10, letterSpacing: 1, cursor: 'pointer', fontFamily: 'var(--font-mono)',
+                  }}
+                >CANCEL</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Link href={`/workspace/${workspace.id}`} style={{ textDecoration: 'none' }}>
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(11,18,40,0.9) 0%, rgba(7,11,28,0.95) 100%)',
+            border: '1px solid rgba(58,110,200,0.2)',
+            borderTop: '2px solid rgba(61,123,212,0.45)',
+            padding: isLarge ? '24px' : '18px 20px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            position: 'relative',
+            overflow: 'hidden',
+            height: isLarge ? 210 : 170,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+            e.currentTarget.style.boxShadow = '0 8px 32px rgba(61,123,212,0.15)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'
+            e.currentTarget.style.transform = 'translateY(0)'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
+        >
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 60,
+            background: 'linear-gradient(180deg, rgba(61,123,212,0.07) 0%, transparent 100%)',
+            pointerEvents: 'none',
+          }} />
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: workspace.is_active ? '#2a9e58' : '#4a6b8a',
+                boxShadow: workspace.is_active ? '0 0 6px #2a9e58' : 'none',
+              }} />
+              <span style={{ fontSize: 11, letterSpacing: 1, color: '#6a9aba' }}>
+                {workspace.is_collaborative ? '◈ COLLABORATIVE' : '○ PERSONAL'}
               </span>
+              {workspace.member_count > 1 && (
+                <span style={{ fontSize: 11, color: '#5a8ec4' }}>
+                  · {workspace.member_count} members
+                </span>
+              )}
+            </div>
+
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: isLarge ? 26 : 22,
+              letterSpacing: 3,
+              color: '#ddeeff',
+              lineHeight: 1.1,
+              marginBottom: 8,
+            }}>
+              {workspace.name.toUpperCase()}
+            </div>
+
+            {workspace.description && (
+              <div style={{
+                fontSize: 12, color: '#6a9aba', lineHeight: 1.6,
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              }}>
+                {workspace.description}
+              </div>
             )}
           </div>
 
-          <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: isLarge ? 26 : 22,
-            letterSpacing: 3,
-            color: '#ddeeff',
-            lineHeight: 1.1,
-            marginBottom: 8,
-          }}>
-            {workspace.name.toUpperCase()}
-          </div>
-
-          {workspace.description && (
-            <div style={{
-              fontSize: 12, color: '#6a9aba', lineHeight: 1.6,
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-            }}>
-              {workspace.description}
+          <div>
+            {domains.length > 0 && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {domains.map(d => (
+                  <div key={d} title={d} style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: DOMAIN_COLORS[d] || '#3d7bd4',
+                    boxShadow: `0 0 5px ${DOMAIN_COLORS[d] || '#3d7bd4'}99`,
+                  }} />
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 11, color: '#4a6b8a' }}>
+                {workspace.node_count || 0} entities · {workspace.edge_count || 0} relations
+              </span>
+              <span style={{ fontSize: 11, color: '#4a6b8a' }}>
+                {lastOpened}
+              </span>
             </div>
-          )}
-        </div>
-
-        <div>
-          {domains.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-              {domains.map(d => (
-                <div key={d} title={d} style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: DOMAIN_COLORS[d] || '#3d7bd4',
-                  boxShadow: `0 0 5px ${DOMAIN_COLORS[d] || '#3d7bd4'}99`,
-                }} />
-              ))}
-            </div>
-          )}
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 11, color: '#4a6b8a' }}>
-              {workspace.node_count || 0} entities · {workspace.edge_count || 0} relations
-            </span>
-            <span style={{ fontSize: 11, color: '#4a6b8a' }}>
-              {lastOpened}
-            </span>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   )
 }
 
@@ -184,7 +265,8 @@ function CreateWorkspaceButton({ onClick, size = 'normal' }) {
   )
 }
 
-function AllWorkspacesModal({ workspaces, onClose, onCreateNew }) {
+// FIX: onDelete is now passed as a prop instead of referencing out-of-scope handleDelete
+function AllWorkspacesModal({ workspaces, onClose, onCreateNew, onDelete }) {
   return (
     <div
       style={{
@@ -236,7 +318,7 @@ function AllWorkspacesModal({ workspaces, onClose, onCreateNew }) {
           alignContent: 'start',
         }}>
           {workspaces.map(ws => (
-            <WorkspaceCard key={ws.id} workspace={ws} />
+            <WorkspaceCard key={ws.id} workspace={ws} onDelete={onDelete} />
           ))}
           <CreateWorkspaceButton onClick={onCreateNew} />
         </div>
@@ -280,10 +362,7 @@ function DashboardHome() {
     const processingWsId = params.get('processing')
     if (!processingWsId || !user) return
 
-    // Find the job for this workspace
     const findAndPoll = async () => {
-      const res  = await fetch(`/api/process/status?workspace_id=${processingWsId}&user_id=${user.id}`)
-      // status endpoint needs job_id — get latest job for workspace via supabase
       const { data: job } = await supabase
         .from('processing_jobs')
         .select('*')
@@ -303,7 +382,6 @@ function DashboardHome() {
           setProcessingJob(prev => ({ ...prev, ...statusData }))
           if (statusData.status === 'done' || statusData.status === 'error') {
             clearInterval(poll)
-            // Reload workspaces to get updated node/edge counts
             const { data } = await supabase
               .from('workspaces').select('*').eq('owner_id', user.id)
               .order('last_opened_at', { ascending: false, nullsFirst: false })
@@ -316,9 +394,26 @@ function DashboardHome() {
 
     findAndPoll()
   }, [user])
+
   const hasMany   = workspaces.length > 2
   const recentTwo = workspaces.slice(0, 2)
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || 'ANALYST'
+
+  const handleDelete = async (workspaceId) => {
+    // Optimistically remove from UI
+    setWorkspaces(prev => prev.filter(w => w.id !== workspaceId))
+    try {
+      await fetch(`/api/workspace/${workspaceId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      })
+    } catch (err) {
+      console.error('Delete failed', err)
+      const { data } = await supabase.from('workspaces').select('*').eq('owner_id', user.id).order('last_opened_at', { ascending: false, nullsFirst: false })
+      setWorkspaces(data || [])
+    }
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -378,7 +473,6 @@ function DashboardHome() {
           borderBottom: `1px solid ${processingJob.status === 'error' ? 'rgba(201,64,64,0.2)' : 'rgba(61,123,212,0.2)'}`,
           display: 'flex', alignItems: 'center', gap: 16,
         }}>
-          {/* Progress bar */}
           <div style={{ flex: 1, height: 2, background: 'rgba(58,110,200,0.15)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{
               height: '100%',
@@ -456,7 +550,7 @@ function DashboardHome() {
               gap: 16, maxWidth: 1000,
             }}>
               {recentTwo.map(ws => (
-                <WorkspaceCard key={ws.id} workspace={ws} size="large" />
+                <WorkspaceCard key={ws.id} workspace={ws} size="large" onDelete={handleDelete} />
               ))}
               {!hasMany && (
                 <CreateWorkspaceButton onClick={() => window.location.href = '/dashboard/new'} size="large" />
@@ -488,7 +582,7 @@ function DashboardHome() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <span style={{ fontSize: 11, letterSpacing: 2, color: '#4a6b8a' }}>PREVIEW</span>
             <Link
-              href="/"
+              href="/preview"
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 padding: '8px 18px',
@@ -519,6 +613,7 @@ function DashboardHome() {
           workspaces={workspaces}
           onClose={() => setShowAll(false)}
           onCreateNew={() => { setShowAll(false); window.location.href = '/dashboard/new' }}
+          onDelete={handleDelete}
         />
       )}
     </div>

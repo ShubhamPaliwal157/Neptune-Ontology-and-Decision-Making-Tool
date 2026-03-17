@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { queryGroq } from '@/lib/groq'
 import { getConnectedNodes, getDomainColor, formatRelationship } from '@/lib/graphUtils'
 
-export default function NodePanel({ selectedNode, setSelectedNode }) {
+export default function NodePanel({ selectedNode, setSelectedNode, graphData }) {
   const [edges, setEdges]         = useState([])
   const [nodes, setNodes]         = useState([])
   const [connected, setConnected] = useState([])
@@ -14,11 +14,16 @@ export default function NodePanel({ selectedNode, setSelectedNode }) {
   const inputRef = useRef(null)
 
   useEffect(() => {
+    if (graphData) {
+      setNodes(graphData.nodes || [])
+      setEdges(graphData.edges || [])
+      return
+    }
     Promise.all([
       fetch('/data/nodes.json').then(r => r.json()),
       fetch('/data/edges.json').then(r => r.json()),
     ]).then(([n, e]) => { setNodes(n); setEdges(e) })
-  }, [])
+  }, [graphData])
 
   useEffect(() => {
     if (!selectedNode) return

@@ -64,96 +64,109 @@ export async function POST(request) {
       }).eq('id', job.id)
     })
 
-    return NextResponse.json({ job_id: job.id, status: 'running' })
+    return NextResponse.json({ job_id: job.id })
   } catch (err) {
+    console.error('POST /api/process/start error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
 // ── Main pipeline ─────────────────────────────────────────────────────────────
 async function processWorkspace({ workspace, sources, job, user_id }) {
-  const updateJob = (fields) => supabaseAdmin
-    .from('processing_jobs')
-    .update({ ...fields, updated_at: new Date().toISOString() })
-    .eq('id', job.id)
+  const updateJob = (fields) =>
+    supabaseAdmin.from('processing_jobs').update({
+      ...fields,
+      updated_at: new Date().toISOString(),
+    }).eq('id', job.id)
 
-  const allEntities = []   // { id, name, type, aliases, domain, description, sources[] }
-  const allEdges    = []   // { source, target, relationship, weight, context }
+  try {
+    const allEntities = []
+    const allEdges    = []
 
-  // ── Step 1: Fetch + extract from each source ──────────────────────────────
-  for (let i = 0; i < sources.length; i++) {
-    const source = sources[i]
-    const progress = Math.round((i / sources.length) * 60) // 0–60%
+    // ── Step 1: Fetch + extract from each source ──────────────────────────────
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i]
+      await updateJob({
+        progress: Math.round(10 + (i / sources.length) * 50),
+        current_step: `Processing source ${i + 1}/${sources.length}…`,
+        sources_done: i,
+      })
+
+      try {
+        const text = await fetchSourceText(source)
+        if (!text) {
+          await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
+          continue
+        }
+
+        const { entities, edges } = await extractWithGroq(text, source, workspace.domains)
+
+        allEntities.push(...entities)
+        allEdges.push(...edges)
+
+        await supabaseAdmin.from('workspace_sources').update({
+          status: 'processed',
+          last_fetched: new Date().toISOString(),
+        }).eq('id', source.id)
+
+      } catch (err) {
+        console.error('Error processing source:', err)
+        await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
+      }
+    }
+
+    // ── Step 2: Merge + deduplicate entities ──────────────────────────────────
+    await updateJob({ progress: 65, current_step: 'Resolving entity aliases...' })
+    const { nodes, edgeMap } = mergeEntities(allEntities, allEdges)
+
+    // ── Step 3: Build final graph ─────────────────────────────────────────────
+    await updateJob({ progress: 80, current_step: 'Building knowledge graph...' })
+    const graph = buildGraph(nodes, edgeMap)
+
+    // ── Step 4: Build context file ────────────────────────────────────────────
+    await updateJob({ progress: 88, current_step: 'Assembling context data...' })
+    const context = buildContext(nodes, sources)
+
+    // ── Step 5: Save outputs ──────────────────────────────────────────────────
+    await updateJob({ progress: 93, current_step: 'Saving outputs...' })
+    await saveOutputs({ workspace, graph, context, user_id })
+
+    // ── Step 6: Update workspace node/edge counts ─────────────────────────────
+    await supabaseAdmin.from('workspaces').update({
+      node_count: graph.nodes.length,
+      edge_count: graph.edges.length,
+      last_opened_at: new Date().toISOString(),
+    }).eq('id', workspace.id)
 
     await updateJob({
-      progress,
-      current_step: `Fetching: ${source.url || source.keyword}`,
-      sources_done: i,
+      status: 'done',
+      progress: 100,
+      current_step: 'Complete',
+      sources_done: sources.length,
     })
-
-    try {
-      const text = await fetchSourceText(source)
-      if (!text || text.length < 50) continue
-
-      await updateJob({ current_step: `Extracting entities: ${source.url || source.keyword}` })
-
-      const { entities, edges } = await extractWithGroq(text, source, workspace.domains)
-
-      allEntities.push(...entities)
-      allEdges.push(...edges)
-
-      await supabaseAdmin.from('workspace_sources').update({
-        status: 'processed',
-        last_fetched: new Date().toISOString(),
-      }).eq('id', source.id)
-
-    } catch {
-      await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
-    }
+  } catch (err) {
+    console.error('Pipeline error:', err)
+    const updateJob = (fields) =>
+      supabaseAdmin.from('processing_jobs').update({
+        ...fields,
+        updated_at: new Date().toISOString(),
+      }).eq('id', job.id)
+    await updateJob({
+      status: 'error',
+      error_message: err.message || 'Pipeline crashed unexpectedly',
+    })
   }
-
-  // ── Step 2: Merge + deduplicate entities ─────────────────────────────────
-  await updateJob({ progress: 65, current_step: 'Resolving entity aliases...' })
-  const { nodes, edgeMap } = mergeEntities(allEntities, allEdges)
-
-  // ── Step 3: Build final graph ─────────────────────────────────────────────
-  await updateJob({ progress: 80, current_step: 'Building knowledge graph...' })
-  const graph = buildGraph(nodes, edgeMap)
-
-  // ── Step 4: Build context file ────────────────────────────────────────────
-  await updateJob({ progress: 88, current_step: 'Assembling context data...' })
-  const context = buildContext(nodes, sources)
-
-  // ── Step 5: Save outputs ──────────────────────────────────────────────────
-  await updateJob({ progress: 93, current_step: 'Saving outputs...' })
-  await saveOutputs({ workspace, graph, context, user_id })
-
-  // ── Step 6: Update workspace node/edge counts ─────────────────────────────
-  await supabaseAdmin.from('workspaces').update({
-    node_count: graph.nodes.length,
-    edge_count: graph.edges.length,
-    last_opened_at: new Date().toISOString(),
-  }).eq('id', workspace.id)
-
-  await updateJob({
-    status: 'done',
-    progress: 100,
-    current_step: 'Complete',
-    sources_done: sources.length,
-  })
 }
 
 // ── Fetch text from a source ──────────────────────────────────────────────────
 async function fetchSourceText(source) {
   if (source.type === 'keyword') {
-    // For keywords, use a DuckDuckGo search summary approach
     return `Topic: ${source.keyword}\nThis is a key entity or topic to track in the workspace.`
   }
 
   const url = source.url
   if (!url) return null
 
-  // Fetch the page
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NeptuneBot/1.0)' },
     signal: AbortSignal.timeout(15000),
@@ -162,19 +175,18 @@ async function fetchSourceText(source) {
   if (!res.ok) return null
   const html = await res.text()
 
-  // Strip HTML tags — basic but effective for articles/Wikipedia
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 12000) // limit to ~3k tokens
+    .slice(0, 12000)
 
   return text
 }
 
-// ── Extract entities + relationships via Groq ─────────────────────────────────
+// ── Extract entities + edges via Groq ─────────────────────────────────────────
 async function extractWithGroq(text, source, domains) {
   const domainContext = (domains || []).join(', ') || 'geopolitics, international relations'
 
@@ -237,7 +249,6 @@ ${text}`
   const data = await res.json()
   const raw  = data.choices?.[0]?.message?.content || '{}'
 
-  // Strip markdown fences if present
   const cleaned = raw.replace(/```json|```/g, '').trim()
   const parsed  = JSON.parse(cleaned)
 
@@ -248,35 +259,90 @@ ${text}`
 }
 
 // ── Merge entities + resolve aliases ─────────────────────────────────────────
-function mergeEntities(allEntities, allEdges) {
-  const nodeMap = new Map() // canonical name → node
 
-  const canonicalize = (name) => name.toLowerCase().trim()
+const SYNONYM_MAP = {
+  'samrajya': 'empire', 'rajya': 'state', 'desh': 'country',
+  'rashtra':  'nation',  'sena': 'army',  'sarkar': 'government',
+  'lok': 'people', 'bharat': 'india', 'hindustan': 'india',
+  'usa': 'united states', 'us': 'united states',
+  'uk': 'united kingdom', 'britain': 'united kingdom',
+  'prc': 'china', 'ussr': 'russia', 'uae': 'united arab emirates',
+}
+const STOP_WORDS = new Set(['the','of','and','a','an','in','at','by','for','to',
+  'republic','democratic','peoples','federal','union'])
+
+function canonicalize(name) { return name.toLowerCase().trim() }
+
+function tokenize(name) {
+  return canonicalize(name)
+    .split(/[\s\-_,]+/)
+    .map(t => SYNONYM_MAP[t] || t)
+    .filter(t => t.length > 1 && !STOP_WORDS.has(t))
+}
+
+function tokenSimilarity(a, b) {
+  const setA = new Set(tokenize(a))
+  const setB = new Set(tokenize(b))
+  const intersection = [...setA].filter(t => setB.has(t)).length
+  const union = new Set([...setA, ...setB]).size
+  return union === 0 ? 0 : intersection / union
+}
+
+function findSimilarNode(entity, nodeMap, threshold = 0.55) {
+  const candidates = [entity.name, ...(entity.aliases || [])]
+  const seen = new Set()
+  for (const [, node] of nodeMap) {
+    if (seen.has(node)) continue
+    seen.add(node)
+    const existing = [node.name, ...node.aliases]
+    for (const a of candidates) {
+      for (const b of existing) {
+        if (tokenSimilarity(a, b) >= threshold) return node
+      }
+    }
+  }
+  return null
+}
+
+function mergeEntities(allEntities, allEdges) {
+  const nodeMap = new Map()
 
   for (const entity of allEntities) {
     const key = canonicalize(entity.name)
 
     if (nodeMap.has(key)) {
-      // Merge into existing
       const existing = nodeMap.get(key)
       existing.aliases = [...new Set([...existing.aliases, ...(entity.aliases || [])])]
       existing.sourcesFound = [...new Set([...existing.sourcesFound, ...(entity.sourcesFound || [])])]
       existing.importance = Math.max(existing.importance || 1, entity.importance || 1)
     } else {
-      // Check if any alias matches an existing node
       let merged = false
+
+      // 1. Exact alias match
       for (const alias of (entity.aliases || [])) {
         const aliasKey = canonicalize(alias)
         if (nodeMap.has(aliasKey)) {
           const existing = nodeMap.get(aliasKey)
           existing.aliases = [...new Set([...existing.aliases, entity.name, ...(entity.aliases || [])])]
           existing.sourcesFound = [...new Set([...existing.sourcesFound, ...(entity.sourcesFound || [])])]
-          // Map this key to the same node
           nodeMap.set(key, existing)
           merged = true
           break
         }
       }
+
+      // 2. Token-similarity fuzzy match
+      if (!merged) {
+        const similar = findSimilarNode(entity, nodeMap)
+        if (similar) {
+          similar.aliases = [...new Set([...similar.aliases, entity.name, ...(entity.aliases || [])])]
+          similar.sourcesFound = [...new Set([...similar.sourcesFound, ...(entity.sourcesFound || [])])]
+          similar.importance = Math.max(similar.importance || 1, entity.importance || 1)
+          nodeMap.set(key, similar)
+          merged = true
+        }
+      }
+
       if (!merged) {
         nodeMap.set(key, {
           id: key.replace(/\s+/g, '_'),
@@ -312,7 +378,6 @@ function mergeEntities(allEntities, allEdges) {
         context: edge.context || '',
       })
     } else {
-      // Strengthen existing edge
       edgeMap.get(edgeKey).weight = Math.min(10, edgeMap.get(edgeKey).weight + 1)
     }
   }
@@ -372,7 +437,6 @@ async function saveOutputs({ workspace, graph, context, user_id }) {
 }
 
 async function saveToDrive({ workspace, graphJson, contextJson, user_id }) {
-  // Refresh token if needed
   const tokenRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

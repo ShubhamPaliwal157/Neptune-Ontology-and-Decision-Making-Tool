@@ -37,7 +37,7 @@ function getNodeSize(node) {
   return Math.max(4, (node.size || 10) * 0.45)
 }
 
-export default function GraphCanvas({ selectedNode, setSelectedNode }) {
+export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
     nodes: [], edges: [],
@@ -60,10 +60,14 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    Promise.all([
-      fetch('/data/nodes.json').then(r => r.json()),
-      fetch('/data/edges.json').then(r => r.json()),
-    ]).then(([nodes, edges]) => {
+    const dataPromise = graphData
+      ? Promise.resolve([graphData.nodes, graphData.edges])
+      : Promise.all([
+          fetch('/data/nodes.json').then(r => r.json()),
+          fetch('/data/edges.json').then(r => r.json()),
+        ])
+
+    dataPromise.then(([nodes, edges]) => {
       const s = stateRef.current
 
       nodes.forEach(n => {
@@ -116,7 +120,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode }) {
       s.revealIndex  = 200
       setStats({ nodes: nodes.length, edges: edges.length })
     })
-  }, [])
+  }, [graphData])
 
   useEffect(() => { stateRef.current.filter = filter }, [filter])
 

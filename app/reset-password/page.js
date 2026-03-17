@@ -80,6 +80,19 @@ export default function ResetPasswordPage() {
               onMouseLeave={e=>{if(!loading)e.currentTarget.style.background='transparent'}}
             >{loading?'UPDATING...':'UPDATE PASSWORD →'}</button>
           </form>
+
+          {/* Footer */}
+          <div style={{ marginTop: 28, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+            <a href="/terms" style={{ fontSize: 10, letterSpacing: 1, color: '#2a3a50', textDecoration: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.color='#7aaeee'}
+              onMouseLeave={e => e.currentTarget.style.color='#2a3a50'}
+            >Terms</a>
+            <span style={{ color: '#2a3a50', margin: '0 10px', fontSize: 10 }}>·</span>
+            <a href="/privacy" style={{ fontSize: 10, letterSpacing: 1, color: '#2a3a50', textDecoration: 'none' }}
+              onMouseEnter={e => e.currentTarget.style.color='#7aaeee'}
+              onMouseLeave={e => e.currentTarget.style.color='#2a3a50'}
+            >Privacy</a>
+          </div>
         )}
       </div>
     </div>

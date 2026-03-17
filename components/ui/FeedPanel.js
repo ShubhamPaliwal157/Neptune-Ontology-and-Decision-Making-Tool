@@ -94,7 +94,7 @@ export default function FeedPanel() {
       {alerts.length > 0 && (
         <div style={{ flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
           {alerts.map(alert => (
-            <div key={alert.id} style={{
+            <div key={`alert-${alert.id}`} style={{
               padding: '7px 14px',
               borderBottom: '1px solid var(--border)',
               borderLeft: `2px solid ${sevColor(alert.sev)}`,
@@ -121,7 +121,7 @@ export default function FeedPanel() {
         {visible.map((item, i) => {
           const color = TYPE_COLORS[item.type] || '#3d7bd4'
           return (
-            <div key={item.id} style={{
+            <div key={`feed-${item.id}`} style={{
               padding: '10px 14px',
               borderBottom: '1px solid var(--border)',
               animation: 'fade-in-up 0.3s ease forwards',

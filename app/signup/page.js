@@ -329,6 +329,20 @@ export default function SignupPage() {
           background: 'linear-gradient(90deg, transparent, rgba(58,110,200,0.15), transparent)',
         }} />
 
+
+      {/* Footer */}
+      <div style={{ marginTop: 28, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+        <a href="/terms" style={{ fontSize: 10, letterSpacing: 1, color: '#2a3a50', textDecoration: 'none' }}
+          onMouseEnter={e => e.currentTarget.style.color='#7aaeee'}
+          onMouseLeave={e => e.currentTarget.style.color='#2a3a50'}
+        >Terms</a>
+        <span style={{ color: '#2a3a50', margin: '0 10px', fontSize: 10 }}>·</span>
+        <a href="/privacy" style={{ fontSize: 10, letterSpacing: 1, color: '#2a3a50', textDecoration: 'none' }}
+          onMouseEnter={e => e.currentTarget.style.color='#7aaeee'}
+          onMouseLeave={e => e.currentTarget.style.color='#2a3a50'}
+        >Privacy</a>
+      </div>
+
         <div style={{ textAlign: 'center', fontSize: 9, color: '#3a5878', letterSpacing: 1 }}>
           ALREADY HAVE ACCESS?{' '}
           <a href="/login" style={{

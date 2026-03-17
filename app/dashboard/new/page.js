@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { withAuth } from '@/app/dashboard/page'
+import { withAuth } from '@/app/dashboard/withAuth'
 import Link from 'next/link'
 
 const DOMAINS = [
