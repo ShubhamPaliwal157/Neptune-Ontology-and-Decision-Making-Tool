@@ -12,18 +12,20 @@ const TYPE_COLORS = {
   SPACE:       '#3d7bd4',
 }
 
+const ALERT_POOL = [
+  { id: 1, sev: 'CRITICAL', text: 'TSMC contract window closing — 11 days remaining', time: '08:41' },
+  { id: 2, sev: 'HIGH',     text: 'PLA engineering battalion moving toward LAC corridor', time: '06:12' },
+  { id: 3, sev: 'HIGH',     text: 'OPEC+ emergency meeting — surprise cut likely', time: '09:15' },
+  { id: 4, sev: 'MEDIUM',   text: 'INR hits 84.6/USD — RBI intervention watch', time: '07:30' },
+  { id: 5, sev: 'CRITICAL', text: 'Pakistan test-fires Shaheen-III MRBM — 3rd test this year', time: '05:50' },
+  { id: 6, sev: 'HIGH',     text: 'APT41 lateral movement detected in PSU networks', time: '03:44' },
+]
+
 export default function FeedPanel() {
   const [items, setItems]       = useState([])
   const [visible, setVisible]   = useState([])
   const [alerts, setAlerts]     = useState([])
-  const [alertPool] = useState([
-    { id: 1, sev: 'CRITICAL', text: 'TSMC contract window closing — 11 days remaining', time: '08:41' },
-    { id: 2, sev: 'HIGH',     text: 'PLA engineering battalion moving toward LAC corridor', time: '06:12' },
-    { id: 3, sev: 'HIGH',     text: 'OPEC+ emergency meeting — surprise cut likely', time: '09:15' },
-    { id: 4, sev: 'MEDIUM',   text: 'INR hits 84.6/USD — RBI intervention watch', time: '07:30' },
-    { id: 5, sev: 'CRITICAL', text: 'Pakistan test-fires Shaheen-III MRBM — 3rd test this year', time: '05:50' },
-    { id: 6, sev: 'HIGH',     text: 'APT41 lateral movement detected in PSU networks', time: '03:44' },
-  ])
+
   const feedRef = useRef(null)
   const tickRef = useRef(0)
 
@@ -46,11 +48,14 @@ export default function FeedPanel() {
     return () => clearInterval(interval)
   }, [items])
 
-  // Stagger alerts
+  // Stagger alerts — registeredRef prevents StrictMode double-invoke firing duplicate timeouts
+  const alertsRegistered = useRef(false)
   useEffect(() => {
-    alertPool.forEach((alert, i) => {
+    if (alertsRegistered.current) return
+    alertsRegistered.current = true
+    ALERT_POOL.forEach((alert, i) => {
       setTimeout(() => {
-        setAlerts(prev => [alert, ...prev].slice(0, 4))
+        setAlerts(prev => prev.some(a => a.id === alert.id) ? prev : [alert, ...prev].slice(0, 4))
       }, i * 22000 + 3000)
     })
   }, [])
