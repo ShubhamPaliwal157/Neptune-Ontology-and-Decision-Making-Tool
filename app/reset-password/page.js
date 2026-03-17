@@ -63,7 +63,7 @@ export default function ResetPasswordPage() {
             <div style={{fontSize:10,color:'#7a9fbe',lineHeight:1.8}}>Password updated. Redirecting to login...</div>
           </div>
         ) : (
-          <form onSubmit={handleReset} style={{display:'flex',flexDirection:'column',gap:14}}>
+          <><form onSubmit={handleReset} style={{display:'flex',flexDirection:'column',gap:14}}>
             <div>
               <label style={{fontSize:8,letterSpacing:2,color:'#3a5878',display:'block',marginBottom:6}}>NEW PASSWORD</label>
               <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="Min. 8 characters" style={inp}
@@ -93,6 +93,7 @@ export default function ResetPasswordPage() {
               onMouseLeave={e => e.currentTarget.style.color='#2a3a50'}
             >Privacy</a>
           </div>
+          </>
         )}
       </div>
     </div>
