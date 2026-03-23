@@ -374,8 +374,8 @@ create table processing_jobs (
 | Entity deduplication + graph building | ✅ Complete |
 | Graph save to Drive / Supabase Storage | ✅ Complete |
 | Processing status polling | ✅ Complete |
-| **Workspace viewer** (`/workspace/[id]`) | ❌ Not built |
-| Per-workspace graph loaded from storage | ❌ Not built |
+| **Workspace viewer** (`/workspace/[id]`) | ✅ Complete |
+| Per-workspace graph loaded from storage | 🔄️ In Progress |
 | Per-workspace feed + decisions | ❌ Not built |
 | AlertBadge component | ❌ Stub only |
 | Collaborative features (invite / accept) | ❌ Not started |
