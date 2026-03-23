@@ -1,21 +1,22 @@
-# Neptune — Design Philosophy & UI System
+# Neptune — Design System & UI Reference
 
-This document defines the visual language, interaction patterns, and component conventions used throughout the Neptune front-end. Every new page, component, or feature must follow this system.
+This document is the single source of truth for Neptune's visual language, component patterns, and interaction conventions. Every page, component, and feature must follow this system. It is written to be used directly with AI tools — paste relevant sections as context when generating new UI.
 
 ---
 
 ## Core Aesthetic
 
-Neptune's UI sits at the intersection of **deep-space atmosphere** and **precision intelligence tooling**. The aesthetic is:
+Neptune's UI is a **deep-space intelligence terminal**. The aesthetic sits at the intersection of:
 
-- Dark, almost black backgrounds (`#060810`) with layered transparency and blur
-- Blue as the dominant accent — not vivid, but deep and authoritative (`#3d7bd4`)
-- Purple as a secondary accent for depth and dimension (`#7050b8`)
-- Domain colours used sparingly to encode semantic meaning, not for decoration
-- Glass panels floating over environmental depth — video, dot grids, ambient orbs
-- Typography that is readable first, characterful second
+- Near-black backgrounds with layered depth through subtle transparency
+- A single dominant accent colour — deep authoritative blue (`#3d7bd4`) — used sparingly
+- Glass panels that appear to float over a star-field environment
+- Monospace typography that reinforces the sense of a precision data tool
+- Uppercase labels, tight letter-spacing, and sparse layouts — information density without clutter
 
-The design should feel like a high-grade intelligence terminal, not a consumer app. Every interface decision should reinforce the sense that the user is handling serious, structured information.
+The design should feel like a high-grade analyst terminal. Every decision reinforces that the user is handling serious, structured intelligence data. It should never look like a consumer SaaS product, a dashboard template, or an AI chatbot.
+
+**The UI is not decorative. Everything on screen has a reason to exist.**
 
 ---
 
@@ -23,321 +24,657 @@ The design should feel like a high-grade intelligence terminal, not a consumer a
 
 ### Fonts
 
-| Font | Weight | Usage |
-| ---- | ------ | ----- |
-| **Sora** | 700, 800 | All headings, display numbers, logo wordmark, section titles |
-| **DM Sans** | 400, 500, 600 | All body text, nav links, button labels, descriptive copy |
+| Font | Role | CSS Variable |
+| ---- | ---- | ------------ |
+| **Bebas Neue** | Display — wordmark, section headings, large numbers, card titles | `var(--font-display)` |
+| **IBM Plex Mono** | Everything else — body, labels, inputs, buttons, nav, metadata | `var(--font-mono)` |
 
-Load via:
+Loaded in `app/layout.js` via `next/font/google`. Applied globally in `globals.css`:
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
+body {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
 ```
 
-**Never use:** IBM Plex Mono, Bebas Neue, Inter, Roboto, system-ui, or any font not in this list for visual UI elements. (IBM Plex Mono may remain inside workspace views as a data/terminal font, but not in the landing page or auth pages.)
+### Type Scale
 
-### Scale & Style
+| Use | Size | Font | Letter-spacing | Case |
+| --- | ---- | ---- | -------------- | ---- |
+| Hero wordmark / logo | 44px | Bebas Neue | 10px | UPPER |
+| Section / modal title | 26–32px | Bebas Neue | 3–8px | UPPER |
+| Card title | 22px | Bebas Neue | 3px | UPPER |
+| Body paragraph | 11–13px | IBM Plex Mono | 0 | Mixed |
+| Navigation label | 13px | IBM Plex Mono 600 | 3px | UPPER |
+| Overline / category tag | 9–10px | IBM Plex Mono | 2–4px | UPPER |
+| Input label | 8px | IBM Plex Mono | 2px | UPPER |
+| Micro caption / timestamp | 8–9px | IBM Plex Mono | 1px | UPPER |
 
-- **Hero wordmark:** `clamp(72px, 10vw, 132px)`, Sora 800, `letterSpacing: 0.04em`, `lineHeight: 0.9`
-- **Section headings:** `clamp(34px, 4vw, 56px)`, Sora 700, `letterSpacing: -0.02em`
-- **Card titles:** 22px, Sora 700, `letterSpacing: -0.01em`
-- **Body copy:** 15–18px, DM Sans 400, `lineHeight: 1.75–1.82`
-- **Labels / overlines:** 10px, DM Sans 600, `letterSpacing: 0.3–0.4em`, UPPERCASE
-- **Captions / micro text:** 11–13px, DM Sans 400
+### Rules
+
+- Display font (Bebas Neue) is for headings and large numbers only — never body copy
+- All labels, overlines, and category text are uppercase with letter-spacing
+- Line height for body copy: `1.6–1.85`
+- Never use system fonts, Inter, Roboto, or any font outside this list
 
 ---
 
 ## Colour System
 
-### Background Layers (darkest → lightest)
+### CSS Variables (defined in `globals.css`)
 
-```md
-#060810       Page background
-#f0f4ff       Primary text (near-white blue)
-rgba(240,244,255, 0.68)   Body copy
-rgba(240,244,255, 0.52)   Secondary text
-rgba(240,244,255, 0.32)   Dimmed text
-rgba(240,244,255, 0.22)   Very dim (labels, captions)
+```css
+:root {
+  /* Backgrounds — darkest to lightest */
+  --bg-base:    #04060e;   /* page background */
+  --bg-deep:    #070c1c;   /* deeper inset areas */
+  --bg-panel:   #080d1f;   /* sidebar, panel backgrounds */
+  --bg-card:    #0b1228;   /* card fills */
+  --bg-hover:   #0f1835;   /* hover state on cards */
+
+  /* Borders */
+  --border:        rgba(58,110,200,0.14);   /* default subtle border */
+  --border-mid:    rgba(100,160,240,0.22);  /* mid-emphasis border */
+  --border-bright: rgba(168,210,255,0.32);  /* high-emphasis border */
+
+  /* Brand blue ramp */
+  --neptune-core:  #2558b8;               /* logo fill, deep buttons */
+  --neptune-mid:   #3d7bd4;               /* primary accent — links, active states */
+  --neptune-light: #7aaeee;               /* lighter accent — secondary text, icons */
+  --neptune-pale:  #c8e4ff;               /* near-white blue — high contrast text */
+  --neptune-glow:  rgba(61,123,212,0.18); /* tinted fill for active/hover areas */
+  --neptune-ring:  rgba(168,210,255,0.1); /* faint ring/border glow */
+
+  /* Text */
+  --text-primary:   #ddeeff;   /* main text */
+  --text-secondary: #7a9fbe;   /* secondary / meta text */
+  --text-dim:       #3a5878;   /* dimmed / placeholder */
+
+  /* Status / semantic */
+  --red:    #c94040;   /* critical / error / threat */
+  --orange: #c87c3a;   /* high / warning */
+  --green:  #2a9e58;   /* live / success / positive */
+  --yellow: #b89a30;   /* medium / caution */
+  --purple: #7050b8;   /* society domain / depth accent */
+}
 ```
 
-### Brand Blues
+### Domain Colour Reference
+
+These encode semantic meaning — always use the correct colour per domain, never decorate with them arbitrarily.
+
+| Domain | Code | Hex | Usage |
+| ------ | ---- | --- | ----- |
+| Geopolitics | GEO | `#c94040` | Borders, node dots, tags |
+| Economics | ECO | `#c87c3a` | Borders, node dots, tags |
+| Defence | DEF | `#b85a30` | Borders, node dots, tags |
+| Technology | TEC | `#3d7bd4` | Borders, node dots, tags |
+| Climate | CLI | `#2a9e58` | Borders, node dots, tags |
+| Society | SOC | `#7050b8` | Borders, node dots, tags |
+
+Domain colours appear as 7–8px dots, tag borders, and card accent bars. Never use them as large fill colours.
+
+### Commonly Used Raw Values
+
+These appear frequently across components and may be used inline where CSS variables are not available:
 
 ```md
-#3d7bd4   Neptune blue (primary accent, links, borders)
-#7050b8   Neptune purple (secondary accent, depth)
-#c8e4ff   Neptune pale blue (high-contrast text on dark)
-#2558b8   Deep brand blue (logo fills, gradients)
-#90c4ff   Light highlight (specular, planet)
-```
-
-### Domain Colours
-
-These encode semantic meaning — always use the correct colour for a domain, never swap.
-
-| Domain | Code | Hex |
-| ------ | ---- | --- |
-| Geopolitics | GEO | `#c94040` |
-| Economics | ECO | `#c87c3a` |
-| Defense | DEF | `#b85a30` |
-| Technology | TEC | `#3d7bd4` |
-| Climate | CLI | `#2a9e58` |
-| Society | SOC | `#7050b8` |
-
-### Status Colours
-
-```md
-#2a9e58   Live / success / positive
-#c94040   Critical / error / threat
-#c87c3a   High / warning
-#b89a30   Medium / caution
+#03050c / #04060e   — deepest page background
+#07090f             — star canvas background (auth pages)
+rgba(3,5,12,0.75)   — frosted topbar background
+rgba(3,5,12,0.88)   — frosted modal overlay/scrim
+rgba(11,18,40,0.9)  — card fill (light variant)
+rgba(7,11,28,0.95)  — card fill (dark variant)
+rgba(58,110,200,0.12) — active nav item fill
+rgba(61,123,212,0.1)  — button hover fill
+#6a9aba             — medium-brightness secondary text (common)
+#5a8ec4             — slightly brighter secondary text
+#4a6b8a             — dimmed metadata text
 ```
 
 ---
 
-## Glass Panels
+## Spacing & Layout
 
-The shared `glass` preset is used for all floating card surfaces:
+### Grid & Containers
+
+- Dashboard grid: `repeat(auto-fill, minmax(260px, 1fr))`, `gap: 16px`
+- Large card grid (recent workspaces): `repeat(N, minmax(0, 320px))`, `gap: 16px`
+- Modal width: `460px` (narrower) or `640px` (wider)
+- Section padding: `52px 64px 32px` (top / sides / bottom)
+- Panel padding: `24px` large, `18px 20px` normal
+- Topbar height: `~57px` (`padding: 14px 32px`)
+- Sidebar width: `56px` (icon-only)
+
+### Spacing Rules
+
+- Consistent `gap: 6–8px` between inline items (dots, tags, badges)
+- `marginBottom: 10px` after row-level headers within cards
+- `gap: 16px` between card-level elements
+- Form fields: `marginBottom: 16–20px`
+- Section labels from content: `marginBottom: 18px`
+
+---
+
+## Cards
+
+### Workspace Card
+
+The canonical card pattern used throughout the dashboard.
 
 ```js
-const glass = {
-  background:           'rgba(255,255,255,0.040)',
-  backdropFilter:       'blur(28px)',
-  WebkitBackdropFilter: 'blur(28px)',
-  border:               '1px solid rgba(255,255,255,0.082)',
+{
+  background: 'linear-gradient(135deg, rgba(11,18,40,0.9) 0%, rgba(7,11,28,0.95) 100%)',
+  border: '1px solid rgba(58,110,200,0.2)',
+  borderTop: '2px solid rgba(61,123,212,0.45)',   // 2px top accent
+  padding: '18px 20px',   // normal; '24px' for large variant
+  height: 170,            // normal; 210 for large variant
+  position: 'relative',
+  overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-between',
+  transition: 'all 0.2s',
 }
 ```
 
-Every glass card also gets a `::before` pseudo-element light leak:
+**Hover state** (applied via `onMouseEnter`/`onMouseLeave` directly on the element — never via CSS class):
 
-```css
-.card::before {
-  content: '';
-  position: absolute; inset: 0; border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.055) 0%, transparent 55%);
-  pointer-events: none;
+```js
+borderColor: 'rgba(61,123,212,0.5)'
+transform: 'translateY(-2px)'
+boxShadow: '0 8px 32px rgba(61,123,212,0.15)'
+```
+
+**Inner gradient overlay** (top of card, `pointerEvents: none`):
+
+```js
+{
+  position: 'absolute', top: 0, left: 0, right: 0, height: 60,
+  background: 'linear-gradient(180deg, rgba(61,123,212,0.07) 0%, transparent 100%)',
 }
 ```
 
-Cards with a coloured accent get a 2px bottom bar:
+**Card anatomy (top to bottom):**
 
-```css
-.feat-bar {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, {accent}00, {accent}80, {accent}00);
+1. Status dot (7px circle) + type label (COLLABORATIVE / PERSONAL)
+2. Workspace name in display font
+3. Description (2-line clamp, `WebkitLineClamp: 2`)
+4. Domain colour dots (7–8px circles with glow)
+5. Entity count · relation count / last-opened date
+
+### Modal / Dialog Panel
+
+```js
+{
+  background: 'linear-gradient(160deg, rgba(11,18,40,0.98) 0%, rgba(7,11,28,0.98) 100%)',
+  border: '1px solid rgba(58,110,200,0.2)',
+  borderTop: '2px solid rgba(61,123,212,0.5)',
+  backdropFilter: 'blur(18px)',
 }
 ```
+
+Modal overlay scrim:
+
+```js
+{ background: 'rgba(3,5,12,0.88)', backdropFilter: 'blur(12px)' }
+```
+
+Modal entrance animation: `modal-rise` — `translateY(24px)` → `translateY(0)`, `opacity 0 → 1`, duration `0.6s`, `cubic-bezier(0.16,1,0.3,1)`.
+
+### "New Workspace" Placeholder Card
+
+Dashed border variant — uses dashed border instead of solid:
+
+```js
+{
+  background: 'transparent',
+  border: '1px dashed rgba(61,123,212,0.3)',
+  padding: '20px',
+}
+```
+
+Hover: `borderColor: 'rgba(61,123,212,0.6)'`, `background: 'rgba(61,123,212,0.05)'`.
 
 ---
 
-## TiltCard Component
+## Panels & Chrome
 
-All interactive glass cards use the `TiltCard` component, which applies a smooth 3D tilt on mouse hover using `requestAnimationFrame` (no React state updates — pure DOM).
+### Topbar / Navbar
 
-**API:**
-
-```jsx
-<TiltCard accent="#3d7bd4" style={{ ...glass, borderRadius: 16 }}>
-  {/* card contents */}
-</TiltCard>
+```js
+{
+  background: 'rgba(3,5,12,0.75)',
+  backdropFilter: 'blur(12px)',
+  borderBottom: '1px solid rgba(58,110,200,0.12)',
+  padding: '14px 32px',
+}
 ```
 
-**Behaviour:**
+- Logo: 30px circle, `background: #2558b8`, display font size 17, `boxShadow: '0 0 10px rgba(61,123,212,0.4)'`
+- Wordmark: 13px IBM Plex Mono 600, `letterSpacing: 3px`, `color: #7aaeee`
+- Never fully opaque — the star canvas or background should be faintly visible through it
 
-- On `mouseenter`: starts a rAF loop lerping `rotateX`/`rotateY` toward the cursor position (max ±9°), scales to `1.025`, adds coloured `box-shadow` ring
-- On `mouseleave`: springs back to flat (`scale(1)`, no shadow)
-- Uses `willChange: transform` and `transformStyle: preserve-3d`
-- No React state — runs at 60fps without triggering re-renders
+### Sidebar (Workspace View)
 
-**Do not** use TiltCard on interactive elements that contain buttons or forms — the perspective transform can interfere with pointer events.
+```js
+{
+  width: 56,            // always collapsed — icon only
+  background: 'var(--bg-panel)',
+  borderRight: '1px solid var(--border)',
+}
+```
+
+Active nav item:
+
+```js
+{
+  background: 'rgba(61,123,212,0.12)',
+  borderLeft: '2px solid var(--neptune-mid)',
+  color: 'var(--neptune-light)',
+}
+```
+
+Inactive nav item: `background: transparent`, `borderLeft: '2px solid transparent'`, `color: var(--text-dim)`.
+
+Domain indicator dots in sidebar: 7px circles at 70% opacity with `boxShadow: '0 0 5px {color}55'`.
+
+LIVE indicator: 5px green pulsing dot + vertical `writing-mode` label `fontSize: 7px`.
+
+### Intelligence Feed Panel (Left)
+
+- Width: `280–320px`
+- Background: `var(--bg-panel)` with `borderRight: '1px solid var(--border)'`
+- Feed items reveal progressively with staggered animation on load
+- Severity badges use status colours as background tints:
+  - `CRITICAL` → `#c94040` text, `rgba(201,64,64,0.12)` background
+  - `HIGH` → `#c87c3a`
+  - `MEDIUM` → `#b89a30`
+
+### Node Detail Panel (Right)
+
+- Width: `300px`, `background: var(--bg-panel)`, `borderLeft: '1px solid var(--border)'`
+- Tab switcher: CONNECTIONS / AI tabs with `borderBottom: '2px solid {accent}'` on active
+- Empty state: centered text `SELECT AN ENTITY / TO INSPECT` in dim text
 
 ---
 
 ## Buttons
 
-All buttons use `border-radius: 6px` — a slightly curved rectangle, never fully pill-shaped or perfectly square.
+### Primary Action Button
 
-### Primary (`lp-btn-pri`)
+Used for main CTAs: "ENTER WORKSPACE", login submit, "START PROCESSING", etc.
 
-```css
-background: rgba(61,123,212,0.18);
-border: 1px solid rgba(61,123,212,0.52);
-border-radius: 6px;
-color: #c8e4ff;
-font-family: "DM Sans";
-font-size: 13px;
-font-weight: 600;
-letter-spacing: 2px;
-padding: 13px 28px;
+```js
+{
+  background: 'transparent',
+  border: '1px solid rgba(100,160,240,0.35)',
+  color: '#c8e4ff',       // var(--neptune-pale)
+  fontSize: 10,
+  fontWeight: 600,
+  letterSpacing: 4,
+  padding: '13px',        // full-width; or '13px 28px' for inline
+  fontFamily: 'var(--font-mono)',
+  transition: 'all 0.2s',
+}
 ```
 
-Hover: brighter background, brighter border, `translateY(-2px)`, blue `box-shadow`.
+Hover:
 
-Has a `::after` gradient shimmer overlay (`linear-gradient(135deg, rgba(255,255,255,0.09) 0%, transparent 55%)`).
-
-### Secondary (`lp-btn-sec`)
-
-```css
-background: transparent;
-border: 1px solid rgba(255,255,255,0.1);
-border-radius: 6px;
-color: rgba(240,244,255,0.58);
+```js
+background: 'rgba(61,123,212,0.1)'
+borderColor: 'rgba(168,210,255,0.5)'
 ```
 
-Hover: faint background, brighter border, brighter text.
+### Secondary / Ghost Button
+
+Used for cancel, sign out, back actions:
+
+```js
+{
+  background: 'transparent',
+  border: '1px solid rgba(58,110,200,0.25)',
+  color: '#6a9aba',
+  fontSize: 12,
+  letterSpacing: 1,
+  padding: '6px 14px',
+}
+```
+
+Hover: `color: #c94040`, `borderColor: 'rgba(201,64,64,0.4)'` (for destructive secondary like Sign Out).
+Hover: `color: #c8e4ff`, `borderColor: 'rgba(100,160,240,0.35)'` (for neutral secondary).
+
+### Danger Button (Delete / Confirm Destructive)
+
+```js
+{
+  background: 'rgba(201,64,64,0.15)',
+  border: '1px solid rgba(201,64,64,0.4)',
+  color: '#c94040',
+  fontSize: 10,
+  letterSpacing: 1,
+}
+```
+
+### Icon / Utility Button (3-dot menu, close, etc.)
+
+```js
+{
+  width: 28, height: 28,
+  background: 'transparent',
+  border: '1px solid transparent',
+  color: '#6a9aba',
+  fontSize: 16,
+  borderRadius: 2,
+  transition: 'all 0.15s',
+}
+```
+
+Hover: `background: 'rgba(61,123,212,0.15)'`, `borderColor: 'rgba(61,123,212,0.4)'`.
+
+### Button Rules
+
+- All buttons: `fontFamily: 'var(--font-mono)'`, `cursor: 'pointer'`
+- Hover/active states are applied via `onMouseEnter`/`onMouseLeave` on the element directly — **never via CSS class or `useState`**
+- No border-radius on primary/secondary buttons — sharp corners (`borderRadius: 0`) or `2px` maximum
+- Labels are UPPERCASE with letter-spacing
 
 ---
 
-## Cursor Orb
-
-A large blurred radial gradient follows the cursor, creating an ambient glow effect.
-
-```jsx
-// rendered as a fixed div, positioned via direct DOM style updates (no React state)
-<div ref={orbRef} style={{
-  position: 'fixed', top: 0, left: 0,
-  width: 720, height: 720, borderRadius: '50%',
-  background: 'radial-gradient(circle, rgba(61,123,212,0.38) 0%, rgba(112,80,184,0.22) 28%, rgba(61,123,212,0.10) 52%, transparent 70%)',
-  filter: 'blur(38px)',
-  pointerEvents: 'none', zIndex: 2,
-  willChange: 'transform',
-  mixBlendMode: 'screen',
-}}/>
-```
-
-Lerp factor: `0.055` (laggy enough to feel smooth, fast enough to feel responsive).
-
-**Implementation:** Uses a persistent `requestAnimationFrame` loop that updates `orbRef.current.style.transform` directly. Never use `useState` for the orb position — this would cause 60 re-renders per second.
+## Form Inputs
 
 ```js
-const tick = () => {
-  orbPosRef.current.x += (mouseRef.current.x - orbPosRef.current.x) * 0.055
-  orbPosRef.current.y += (mouseRef.current.y - orbPosRef.current.y) * 0.055
-  orbRef.current.style.transform = `translate(${orbPosRef.current.x - 360}px, ${orbPosRef.current.y - 360}px)`
-  rafRef.current = requestAnimationFrame(tick)
+const inputStyle = {
+  background: 'rgba(8,13,31,0.8)',
+  border: '1px solid rgba(58,110,200,0.2)',
+  borderRadius: 2,
+  color: '#ddeeff',
+  fontSize: 12,
+  padding: '11px 14px',
+  fontFamily: 'var(--font-mono)',
+  width: '100%',
+  outline: 'none',
+  transition: 'border-color 0.2s',
+}
+```
+
+Focus: `borderColor: 'rgba(61,123,212,0.55)'`
+Blur: `borderColor: 'rgba(58,110,200,0.2)'`
+
+Input labels:
+
+```js
+{ fontSize: 8, letterSpacing: 2, color: '#3a5878', display: 'block', marginBottom: 6 }
+```
+
+Error state:
+
+```js
+{
+  fontSize: 9, color: '#c94040', letterSpacing: 1,
+  padding: '8px 12px',
+  background: 'rgba(201,64,64,0.08)',
+  border: '1px solid rgba(201,64,64,0.2)',
 }
 ```
 
 ---
 
-## Navbar
+## Dividers & Separators
 
-Transparent when at top of page. Transitions to frosted glass on scroll (threshold: 50px).
+Horizontal rule — gradient that fades to transparent at both ends:
 
 ```js
-// Scrolled state
-background:           'rgba(6,8,18,0.48)'
-backdropFilter:       'blur(22px) saturate(160%)'
-borderBottom:         '1px solid rgba(255,255,255,0.07)'
-
-// Default (at top)
-background:           'transparent'
-backdropFilter:       'none'
+{
+  width: '100%', height: 1,
+  background: 'linear-gradient(90deg, rgba(61,123,212,0.4), transparent)',
+  marginBottom: 24,
+}
 ```
 
-**Intentionally translucent** — not fully opaque when scrolled. The video and ambient orbs should remain faintly visible behind the nav.
+Subtle section divider (between panels/rows):
 
-Nav link spacing: `gap: 32px`. Text: 13px DM Sans 500, `rgba(240,244,255,0.55)`. Hover: `#f0f4ff`.
+```js
+{ height: 1, background: 'var(--border)' }
+// or inline:
+{ borderBottom: '1px solid rgba(58,110,200,0.12)' }
+```
+
+Vertical divider (between stats cells in a grid):
+
+```js
+{ borderRight: '1px solid var(--border)' }
+```
 
 ---
 
-## Environmental Layers (z-index stack)
+## Status Indicators
+
+### Pulsing Dot
+
+Used for LIVE indicator, active workspace, processing states:
+
+```jsx
+<div style={{
+  width: 5, height: 5, borderRadius: '50%',
+  background: '#2a9e58',   // or '#c94040' for critical, '#3d7bd4' for processing
+  animation: 'pulse-dot 1.8s infinite',
+}} />
+```
+
+`pulse-dot` keyframe (defined in `globals.css`):
+
+```css
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+```
+
+### Processing / Loading State
+
+Three-dot loading indicator:
+
+```jsx
+<div style={{ display: 'flex', gap: 5 }}>
+  {[0,1,2].map(i => (
+    <div key={i} style={{
+      width: 5, height: 5, borderRadius: '50%',
+      background: '#3d7bd4',
+      animation: `pulse-dot 0.8s ${i * 0.18}s infinite`,
+    }} />
+  ))}
+</div>
+```
+
+Progress bar:
+
+```js
+// Track
+{ height: 2, background: 'rgba(58,110,200,0.15)', borderRadius: 2, overflow: 'hidden' }
+// Fill
+{ height: '100%', width: `${progress}%`, background: '#3d7bd4', transition: 'width 0.6s ease' }
+```
+
+---
+
+## Background Environments
+
+### Star Canvas (Auth Pages — Login, Signup)
+
+A `<canvas>` element rendered with `position: fixed; inset: 0; zIndex: 0; pointerEvents: none`. Approximately 200 small stars drawn as circles with randomised radius (`0.15–1.05px`), alpha (`0.08–0.43`), and a slow sine-wave breathing animation. Stars are redrawn every frame via `requestAnimationFrame`.
+
+Never use `useState` for star position — run the animation loop entirely within the `useEffect` cleanup.
+
+### Star Canvas (Dashboard)
+
+Same pattern as auth pages. Star canvas runs behind all content at `zIndex: 0`.
+
+### Video Background (Workspace Preview / Landing)
+
+`<NeptuneBackground />` component renders `neptune-bg.mp4` looping with:
+
+- `muted autoPlay loop playsInline`
+- `position: absolute; inset: 0; width: 100%; height: 100%; objectFit: cover`
+- A dark overlay gradient on top: `rgba(4,6,14,0.85)` to `rgba(4,6,14,0.92)` ensuring text readability
+
+Other pages do **not** use the video — they use the star canvas instead. The star canvas achieves a similar atmospheric depth at much lower cost.
+
+---
+
+## Animations
+
+All animations are defined as `@keyframes` in `globals.css` and referenced by name.
+
+| Animation | Usage |
+| --------- | ----- |
+| `pulse-dot` | Pulsing status dots, loading indicators |
+| `fade-in-up` | General element entrance: `opacity 0→1`, `translateY(10px→0)` |
+| `modal-rise` | Modal entrance: `opacity 0→1`, `translateY(24px→0)`, `0.6s cubic-bezier(0.16,1,0.3,1)` |
+| `stars-drift` | Slow vertical drift on star particles |
+| `atmosphere-breathe` | `box-shadow` pulse on the Neptune globe visual |
+| `ring-pulse` | Opacity pulse on orbital ring elements |
+
+### Animation Rules
+
+- Hover state transforms (translateY, boxShadow) use CSS `transition: 'all 0.2s'` on the element — not animation keyframes
+- Never use `useState` for anything that animates at 60fps — use `ref.current.style` for real-time updates
+- All entrance animations: `cubic-bezier(0.16,1,0.3,1)` — fast in, spring out
+
+---
+
+## Context Badges & Tags
+
+Domain tag (small coloured pill used in filters, card metadata):
+
+```js
+{
+  fontSize: 8, letterSpacing: 1,
+  padding: '2px 8px',
+  border: `1px solid ${color}44`,
+  background: `${color}18`,
+  color: color,
+}
+```
+
+Status badge (CRITICAL / HIGH / MEDIUM / LOW):
+
+```js
+{
+  fontSize: 9, letterSpacing: 1, fontWeight: 600,
+  padding: '2px 6px',
+  color: statusColor,
+  background: `${statusColor}18`,
+}
+```
+
+Classification / system badge (e.g. "DEVELOPMENT PREVIEW"):
+
+```js
+{
+  display: 'inline-flex', alignItems: 'center', gap: 7,
+  padding: '3px 10px',
+  border: '1px solid rgba(200,80,80,0.25)',
+  fontSize: 9, letterSpacing: 2, color: '#a05050',
+}
+```
+
+---
+
+## Scrollbar
+
+Globally styled in `globals.css` — ultra-thin, nearly invisible:
+
+```css
+::-webkit-scrollbar { width: 2px; height: 2px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1a2a44; border-radius: 2px; }
+```
+
+---
+
+## Z-Index Stack
 
 | Layer | z-index | Element |
 | ----- | ------- | ------- |
-| Background video | 0 | `<video>` + gradient overlay |
-| Dot grid | 0 | `position: fixed` repeating radial pattern |
-| Ambient orbs | 0 | Two large blurred static orbs (top-right purple, bottom-left green) |
-| Cursor orb | 2 | 720px blurred radial, `mixBlendMode: screen` |
-| Page content | 1 | All sections, cards, text |
-| Navbar | 300 | Always on top |
+| Background canvas / video | 0 | Star canvas, video background |
+| Page content | 1 | All sections, panels, cards |
+| Cursor / ambient effects | 2 | Orb overlays (if present) |
+| Topbar / navbar | 10 | Always on top of content |
+| Dropdown menus | 20–30 | Context menus, tooltips |
+| Modal scrim | 99 | Overlay scrim |
+| Modal panel | 100 | Dialog content |
 
 ---
 
-## Scroll Animations
+## Interaction Patterns
 
-### Scroll Reveal
+### Hover States
 
-All sections and cards use `[data-reveal]` + `IntersectionObserver`. When an element enters the viewport, `classList.add('lp-in')` is called (with an optional `data-delay` in ms for stagger).
+All hover states are applied via `onMouseEnter`/`onMouseLeave` event handlers mutating `e.currentTarget.style` directly. **Never use React state or CSS classes for hover.** This keeps animations synchronous and avoids re-renders.
 
-```css
-[data-reveal] {
-  opacity: 0;
-  transform: translateY(34px);
-  transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
-              transform 0.75s cubic-bezier(0.16,1,0.3,1);
-}
-[data-reveal].lp-in { opacity: 1; transform: translateY(0); }
+```jsx
+onMouseEnter={e => {
+  e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'
+  e.currentTarget.style.transform = 'translateY(-2px)'
+  e.currentTarget.style.boxShadow = '0 8px 32px rgba(61,123,212,0.15)'
+}}
+onMouseLeave={e => {
+  e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'
+  e.currentTarget.style.transform = 'translateY(0)'
+  e.currentTarget.style.boxShadow = 'none'
+}}
 ```
 
-Stagger cards by passing `data-delay={i * 80}` (80ms per card).
+### Context Menus / Dropdowns
 
-### Stats Count-Up
+Dropdowns are positioned `absolute` relative to a `position: relative` wrapper. They open on button click (toggle), not hover. They dismiss via `onMouseLeave` on the dropdown container itself. Confirmation flows (e.g. delete) flip to a secondary state within the same dropdown — no separate dialog.
 
-Stats use a cubic-ease count-up animation triggered by `IntersectionObserver` at `threshold: 0.3`. Uses `performance.now()` for frame-accurate timing, not `setInterval`.
+### Links
 
-### Workflow Sticky Scroll
-
-The Workflow section uses a **sticky scrollytelling** pattern:
-
-- Outer section is `STEPS.length × 100vh` tall (the "runway")
-- Inner container is `position: sticky; top: 0; height: 100vh` (the "screen")
-- A scroll handler maps progress through the runway to `activeStep`
-- Steps are absolutely positioned and fade in/out via `opacity` transition
-
-**Snap behaviour** is handled in JavaScript, not CSS, to avoid conflicts with the sticky positioning. A debounced scroll handler fires 160ms after scroll stops. If the section top is between 2px and 45% viewport height below the fold, it programmatically scrolls the remaining distance:
+Internal navigation uses Next.js `<Link>` with `textDecoration: 'none'`. Text links in body copy:
 
 ```js
-const trySnap = () => {
-  const rect = section.getBoundingClientRect()
-  if (rect.top > 2 && rect.top < window.innerHeight * 0.45) {
-    window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' })
-  }
-}
-```
-
-**Do not use** `scroll-snap-type` / `scroll-snap-align` CSS for this section — CSS snap fights with `position: sticky` and causes the panel to show empty space.
-
----
-
-## Orbit Visual (Hero)
-
-A pure CSS animated component — no canvas, no SVG.
-
-**Structure:**
-
-- Central planet: 84px circle, `radial-gradient` from `#90c4ff` → `#2558b8` → `#0d1f4a`
-- Three orbital rings: 148px, 208px, 275px diameter circles with `border: 1px solid`
-- Each ring has a coloured dot that rotates with it (`position: absolute; top: -4px; left: 50%`)
-- Domain labels positioned at fixed angles around the outermost ring using trigonometry
-- Float animation: `lp-float` (vertical sine, 8s, ±14px)
-- Ring rotations: `lp-ring-cw` / `lp-ring-ccw` at 14s, 22s, 33s
-
----
-
-## Page Structure (Landing)
-
-```html
-<video background>
-<dot grid>
-<ambient orbs × 2>
-<cursor orb>
-<nav>
-<section: Hero>      — OrbitVisual + text + CTAs + domain pills
-<div: Stats>         — 4-cell glass panel with count-up
-<section: Features>  — 2-col TiltCard grid (6 cards)
-<section: Workflow>  — sticky scroll, 3 steps, alternating layout
-<section: Domains>   — flat glass container + 6 TiltCard tiles
-<section: CTA>       — large glass panel, centred
-<footer>             — 3-col: brand + Product + Legal
+{ color: '#7aaeee', textDecoration: 'none', letterSpacing: 2 }
+// Hover:
+{ color: '#c8e4ff' }
 ```
 
 ---
 
 ## What Not To Do
 
-- **No gradients that look "AI-generated"** (blue-to-purple on headings). Headings should be solid `#f0f4ff` or white with a subtle glow `text-shadow`.
-- **No pill-shaped buttons** (`border-radius: 100px`). Buttons are slightly rounded rectangles (`border-radius: 6px`).
-- **No opaque navbars.** The nav at `rgba(6,8,18, 0.48)` should let the video show through.
-- **No `useState` for animation loops.** Orb position, TiltCard transforms, and progress bars that animate at 60fps must use direct DOM mutation via `ref.current.style`.
-- **No generic fonts** (Inter, Roboto, system-ui). Sora + DM Sans only.
-- **No `prototype` language.** Neptune is a full product. Copy should be confident and present-tense.
+- **No `useState` for animations** — orb positions, hover states, 60fps loops all use direct DOM mutation via `ref.current.style`
+- **No opaque navbars** — the topbar is always `rgba(3,5,12,0.75)` with backdrop blur, never fully opaque
+- **No pill-shaped buttons** — buttons are sharp (`borderRadius: 0`) or at most `borderRadius: 2`
+- **No gradient headings** — text colour is solid `#ddeeff` or `#c8e4ff`, no blue-to-purple gradient on text
+- **No Inter, Roboto, or system fonts** — IBM Plex Mono and Bebas Neue only
+- **No colour outside the palette** — do not invent new blues, use the defined ramp
+- **No decorative use of domain colours** — they encode semantic meaning only
+- **No `useEffect` for derived values** — compute inline or with `useMemo`
+- **No `setState` synchronously in effects** — derive values directly or use `useMemo`/`useCallback`
+- **No consumer SaaS aesthetics** — no rounded cards with shadow, no pastel colours, no sans-serif body text, no rounded buttons
+
+---
+
+## Quick Reference: Generating a New Page
+
+When asking an AI to build a new Neptune page, include this context block:
+
+```md
+Neptune Design Rules:
+- Background: #04060e page, #080d1f panels, #0b1228 cards
+- Star canvas background (position: fixed, zIndex: 0, pointerEvents: none, ~200 breathing stars)
+- Topbar: rgba(3,5,12,0.75) with backdropFilter blur(12px), 1px border rgba(58,110,200,0.12)
+- Cards: linear-gradient(135deg, rgba(11,18,40,0.9), rgba(7,11,28,0.95)), border rgba(58,110,200,0.2), borderTop 2px solid rgba(61,123,212,0.45)
+- Card hover: borderColor rgba(61,123,212,0.5), translateY(-2px), boxShadow 0 8px 32px rgba(61,123,212,0.15)
+- Primary button: transparent bg, border rgba(100,160,240,0.35), color #c8e4ff, fontSize 10, letterSpacing 4, UPPERCASE
+- Accent colour: #3d7bd4 (mid), #7aaeee (light), #c8e4ff (pale/text)
+- Text: #ddeeff (primary), #6a9aba (secondary), #4a6b8a (dim)
+- Fonts: Bebas Neue (headings/display), IBM Plex Mono (everything else)
+- All hover states via onMouseEnter/onMouseLeave — never useState or CSS classes
+- No border-radius on buttons (0 or 2px max), no rounded cards
+- Status: green #2a9e58 (live), red #c94040 (critical), orange #c87c3a (high)
+```
