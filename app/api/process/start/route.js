@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { scrape } from '@/lib/scraper/scraper.js'
 
 // Allow up to 5 minutes for the pipeline to complete on Vercel
 export const maxDuration = 300
@@ -106,42 +107,67 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     const allEdges    = []
     const allTexts    = [] // Collected source texts for feed/decision generation
 
-    // ── Step 1: Fetch + extract from each source ──────────────────────────────
-    for (let i = 0; i < sources.length; i++) {
-      const source = sources[i]
-      await updateJob({
-        progress: Math.round(10 + (i / sources.length) * 40),
-        current_step: `Processing source ${i + 1}/${sources.length}…`,
-        sources_done: i,
+    // ── Step 1: Scrape all sources (user + trusted) via scraper module ────────
+    await updateJob({ progress: 10, current_step: 'Scraping sources...' })
+
+    // Convert DB source rows into scraper-compatible input format
+    const userSources = sources.map(s => {
+      if (s.type === 'keyword') return { type: 'keyword', keyword: s.keyword }
+      return { type: s.type || 'url', url: s.url, label: s.url }
+    })
+
+    const scrapeResult = await scrape({
+      userSources,
+      domains:        workspace.domains || [],
+      includeTrusted: true,
+      trustedCount:   8,
+      onProgress:     (msg) => console.log('[scraper]', msg),
+    })
+
+    await updateJob({ progress: 40, current_step: `Scraped ${scrapeResult.normalisedCount} articles from ${scrapeResult.sourceCount} sources. Extracting entities...` })
+
+    // Mark all user sources as processed/failed based on scrape result
+    const failedIds = new Set(scrapeResult.failedSources.map(f => f.sourceId))
+    for (const source of sources) {
+      const sourceKey = source.type === 'keyword'
+        ? `user-kw-${source.keyword?.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`
+        : `user-${source.url?.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60)}`
+      await supabaseAdmin.from('workspace_sources').update({
+        status: failedIds.has(sourceKey) ? 'failed' : 'processed',
+        last_fetched: new Date().toISOString(),
+      }).eq('id', source.id)
+    }
+
+    // Build allTexts from scrape items for feed/decision generation
+    for (const item of scrapeResult.items) {
+      allTexts.push({
+        source: item.url || item.sourceLabel,
+        type:   item.strategy || 'web',
+        text:   item.text.slice(0, 3000),
       })
+    }
 
+    // ── Step 1b: Extract entities from scraped text bundle ────────────────────
+    // Split textBundle into chunks of ~10k chars to avoid Groq token limits
+    const CHUNK_SIZE = 10_000
+    const bundle = scrapeResult.textBundle
+    const chunks = []
+    for (let i = 0; i < bundle.length; i += CHUNK_SIZE) {
+      chunks.push(bundle.slice(i, i + CHUNK_SIZE))
+    }
+
+    for (let i = 0; i < chunks.length; i++) {
+      await updateJob({
+        progress: Math.round(40 + (i / chunks.length) * 15),
+        current_step: `Extracting entities from chunk ${i + 1}/${chunks.length}...`,
+      })
       try {
-        const text = await fetchSourceText(source)
-        if (!text) {
-          await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
-          continue
-        }
-
-        // Keep a sample of each source text for later feed/decision generation
-        allTexts.push({
-          source: source.url || source.keyword || 'unknown',
-          type: source.type,
-          text: text.slice(0, 3000),
-        })
-
-        const { entities, edges } = await extractWithGroq(text, source, workspace.domains)
-
+        const fakeSource = { type: 'bundle', url: `chunk-${i + 1}`, keyword: null }
+        const { entities, edges } = await extractWithGroq(chunks[i], fakeSource, workspace.domains)
         allEntities.push(...entities)
         allEdges.push(...edges)
-
-        await supabaseAdmin.from('workspace_sources').update({
-          status: 'processed',
-          last_fetched: new Date().toISOString(),
-        }).eq('id', source.id)
-
       } catch (err) {
-        console.error('Error processing source:', err)
-        await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
+        console.error(`Chunk ${i + 1} extraction failed:`, err)
       }
     }
 
@@ -190,34 +216,6 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
       updated_at: new Date().toISOString(),
     }).eq('id', job.id)
   }
-}
-
-// ── Fetch text from a source ──────────────────────────────────────────────────
-async function fetchSourceText(source) {
-  if (source.type === 'keyword') {
-    return `Topic: ${source.keyword}\nThis is a key entity or topic to track in the workspace.`
-  }
-
-  const url = source.url
-  if (!url) return null
-
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NeptuneBot/1.0)' },
-    signal: AbortSignal.timeout(15000),
-  })
-
-  if (!res.ok) return null
-  const html = await res.text()
-
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 12000)
-
-  return text
 }
 
 // ── Extract entities + edges via Groq ─────────────────────────────────────────
