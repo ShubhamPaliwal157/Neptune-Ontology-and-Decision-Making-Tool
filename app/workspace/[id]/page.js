@@ -127,6 +127,7 @@ function WorkspacePage({ params }) {
       width: '100vw', height: '100vh',
       overflow: 'hidden', position: 'relative',
       background: 'var(--bg-base)',
+      fontFamily: '"Sora", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
       <NeptuneBackground />
 
@@ -139,17 +140,42 @@ function WorkspacePage({ params }) {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {activeView === 'graph' && (
             <>
-              <FeedPanel />
+              <div style={{
+                width: 280, flexShrink: 0,
+                background: 'rgba(4,6,14,0.6)', // match image transparency
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                borderRight: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 2px 24px 0 rgba(8,13,31,0.08)',
+                backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.04), transparent 60%)',
+                display: 'flex', flexDirection: 'column',
+                zIndex: 2
+              }}>
+                <FeedPanel />
+              </div>
               <GraphCanvas
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
               />
-              <NodePanel
-                selectedNode={selectedNode}
-                setSelectedNode={setSelectedNode}
-                graphData={graphData}
-              />
+              <div style={{
+                width: 320, flexShrink: 0,
+                background: 'rgba(4,6,14,0.6)', // match image transparency
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                borderLeft: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 2px 24px 0 rgba(8,13,31,0.08)',
+                backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.04), transparent 60%)',
+                display: 'flex', flexDirection: 'column',
+                zIndex: 2
+              }}>
+                <NodePanel
+                  selectedNode={selectedNode}
+                  setSelectedNode={setSelectedNode}
+                  graphData={graphData}
+                  setGraphData={setGraphData}
+                />
+              </div>
             </>
           )}
           {activeView === 'decisions' && (

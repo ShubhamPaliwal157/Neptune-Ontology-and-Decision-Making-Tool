@@ -3,14 +3,75 @@ import { useState, useEffect, useRef } from 'react'
 import { queryGroq } from '@/lib/groq'
 import { getConnectedNodes, getDomainColor, formatRelationship } from '@/lib/graphUtils'
 
-export default function NodePanel({ selectedNode, setSelectedNode, graphData }) {
-  const [edges, setEdges]         = useState([])
-  const [nodes, setNodes]         = useState([])
-  const [connected, setConnected] = useState([])
-  const [query, setQuery]         = useState('')
+// Glassmorphic sub-card styling for content blocks
+const glassCardStyle = {
+  background: 'rgba(255, 255, 255, 0.04)',
+  backdropFilter: 'blur(24px)',
+  WebkitBackdropFilter: 'blur(24px)',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
+  borderRadius: '14px',
+  padding: '12px',
+  marginBottom: '10px',
+}
+
+const glassCardTitleStyle = {
+  fontSize: 9,
+  letterSpacing: 1.5,
+  color: 'var(--text-dim)',
+  textTransform: 'uppercase',
+  marginBottom: 6,
+}
+
+const COUNTRY_CODES = {
+  'India': 'in', 'China': 'cn', 'United States': 'us', 'USA': 'us',
+  'Russia': 'ru', 'Pakistan': 'pk', 'United Kingdom': 'gb', 'France': 'fr',
+  'Germany': 'de', 'Japan': 'jp', 'South Korea': 'kr', 'Iran': 'ir',
+  'Saudi Arabia': 'sa', 'UAE': 'ae', 'Israel': 'il', 'Turkey': 'tr',
+  'Brazil': 'br', 'Malaysia': 'my', 'Vietnam': 'vn', 'Thailand': 'th',
+  'Bangladesh': 'bd', 'Libya': 'ly', 'Niger': 'ne', 'Moldova': 'md',
+  'Estonia': 'ee', 'Afghanistan': 'af', 'Honduras': 'hn',
+}
+
+function EntityAvatar({ label, color }) {
+  const code = COUNTRY_CODES[label]
+  const initials = label.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div style={{ width: 36, height: 36, flexShrink: 0, position: 'relative' }}>
+      {code ? (
+        <img
+          src={`https://flagcdn.com/w40/${code}.png`}
+          alt={label}
+          style={{
+            width: 36, height: 36, objectFit: 'cover',
+            borderRadius: 4, border: `1px solid ${color}44`,
+            filter: 'brightness(0.85) saturate(0.9)'
+          }}
+          onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex' }}
+        />
+      ) : null}
+      <div style={{
+        width: 36, height: 36, borderRadius: 4,
+        background: `${color}22`, border: `1px solid ${color}44`,
+        display: code ? 'none' : 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        fontSize: 11, fontWeight: 600, color, letterSpacing: 1
+      }}>{initials}</div>
+    </div>
+  )
+}
+
+export default function NodePanel({ selectedNode, setSelectedNode, graphData, setGraphData }) {
+  const [edges, setEdges]           = useState([])
+  const [nodes, setNodes]           = useState([])
+  const [connected, setConnected]   = useState([])
+  const [query, setQuery]           = useState('')
   const [aiResponse, setAiResponse] = useState('')
-  const [loading, setLoading]     = useState(false)
-  const [tab, setTab]             = useState('connections')
+  const [loading, setLoading]       = useState(false)
+  const [tab, setTab]               = useState('overview')
+  const [showAddEntity, setShowAddEntity] = useState(false)
+  const [newEntityName, setNewEntityName] = useState('')
+  const [newEntityDomain, setNewEntityDomain] = useState('geopolitics')
+  const [newRelationship, setNewRelationship] = useState('')
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -29,7 +90,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
     if (!selectedNode) return
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
     setAiResponse('')
-    setTab('connections')
+    setTab('overview')
   }, [selectedNode, edges, nodes])
 
   const handleQuery = async () => {
@@ -54,6 +115,75 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
     setLoading(false)
   }
 
+  // Delete entity node and all connected edges
+  const handleDeleteEntity = () => {
+    if (!selectedNode || !window.confirm(`Delete "${selectedNode.label}" and all its relationships?`)) return
+    
+    const newEdges = edges.filter(e => e.source !== selectedNode.id && e.target !== selectedNode.id)
+    const newNodes = nodes.filter(n => n.id !== selectedNode.id)
+    
+    if (setGraphData) {
+      setGraphData({ nodes: newNodes, edges: newEdges })
+    } else {
+      setEdges(newEdges)
+      setNodes(newNodes)
+    }
+    setSelectedNode(null)
+  }
+
+  // Remove single edge (relationship) between nodes
+  const handleRemoveEdge = (edgeToRemove) => {
+    const newEdges = edges.filter(e => e !== edgeToRemove)
+    
+    if (setGraphData) {
+      setGraphData({ nodes, edges: newEdges })
+    } else {
+      setEdges(newEdges)
+    }
+    setConnected(getConnectedNodes(selectedNode.id, newEdges, nodes))
+  }
+
+  // Add new entity with relationship
+  const handleAddEntity = () => {
+    if (!newEntityName.trim() || !newRelationship.trim()) {
+      alert('Please enter entity name and relationship')
+      return
+    }
+
+    // Create new node
+    const newNode = {
+      id: newEntityName.toUpperCase().replace(/\s+/g, '_'),
+      label: newEntityName,
+      domain: newEntityDomain,
+      type: 'entity',
+      size: 8,
+      tags: [],
+    }
+
+    // Create bidirectional edge
+    const newEdge = {
+      source: selectedNode.id,
+      target: newNode.id,
+      relationship: newRelationship.toUpperCase().replace(/\s+/g, '_'),
+    }
+
+    const updatedNodes = [...nodes, newNode]
+    const updatedEdges = [...edges, newEdge]
+
+    if (setGraphData) {
+      setGraphData({ nodes: updatedNodes, edges: updatedEdges })
+    } else {
+      setNodes(updatedNodes)
+      setEdges(updatedEdges)
+    }
+    setConnected(getConnectedNodes(selectedNode.id, updatedEdges, updatedNodes))
+    
+    // Reset form
+    setNewEntityName('')
+    setNewRelationship('')
+    setShowAddEntity(false)
+  }
+
   const color = selectedNode ? getDomainColor(selectedNode.domain) : '#3d7bd4'
 
   if (!selectedNode) return (
@@ -69,9 +199,10 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
       <div style={{ fontSize: 9, letterSpacing: 2, color: 'var(--text-dim)', textAlign: 'center' }}>
         SELECT AN ENTITY<br />TO INSPECT
       </div>
-      {/* AI query even without selection */}
       <div style={{ marginTop: 40, width: '100%' }}>
-        <div style={{ fontSize: 8, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 8 }}>AI INTELLIGENCE QUERY</div>
+        <div style={{ fontSize: 8, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 8 }}>
+          AI INTELLIGENCE QUERY
+        </div>
         <textarea
           ref={inputRef}
           value={query}
@@ -119,18 +250,23 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
   return (
     <div style={{
       width: 300, height: '100vh', flexShrink: 0,
-      background: 'var(--bg-panel)',
-      borderLeft: '1px solid var(--border)',
+      background: 'rgba(8, 13, 31, 0.25)',
+      backdropFilter: 'blur(18px)',
+      WebkitBackdropFilter: 'blur(18px)',
+      borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
       display: 'flex', flexDirection: 'column',
       animation: 'fade-in-up 0.25s ease forwards',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)'
     }}>
 
       {/* Header */}
       <div style={{
         padding: '14px 16px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-card)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'rgba(11, 18, 40, 0.4)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -176,10 +312,14 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
 
       {/* Tabs */}
       <div style={{
-        display: 'flex', borderBottom: '1px solid var(--border)',
-        flexShrink: 0
+        display: 'flex', borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        flexShrink: 0, background: 'rgba(8, 13, 31, 0.25)'
       }}>
-        {[['connections', `LINKS (${connected.length})`], ['ai', 'AI ANALYSIS']].map(([id, label]) => (
+        {[
+          ['overview', 'OVERVIEW'],
+          ['ai', 'AI ANALYSIS'],
+          ['links', `LINKS (${connected.length})`],
+        ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             flex: 1, padding: '8px 0', background: 'transparent',
             border: 'none', borderBottom: tab === id ? `2px solid ${color}` : '2px solid transparent',
@@ -190,71 +330,328 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
       </div>
 
       {/* Tab content */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
 
-        {tab === 'connections' && (
-          <>
-            {connected.length === 0 && (
-              <div style={{ padding: 20, fontSize: 9, color: 'var(--text-dim)', textAlign: 'center' }}>
-                No direct connections in graph
+        {/* OVERVIEW TAB */}
+        {tab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Description */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>Description</div>
+              <p style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+                {selectedNode.description || `${selectedNode.label} is a ${selectedNode.type} entity in the ${selectedNode.domain} domain of this knowledge graph.`}
+              </p>
+            </div>
+
+            {/* Metadata */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>Entity Details</div>
+              <div style={{ fontSize: 9, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Type:</span> {selectedNode.type}
+                </div>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Domain:</span> {selectedNode.domain}
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-dim)' }}>Connections:</span> {connected.length}
+                </div>
+              </div>
+            </div>
+
+            {/* Tags */}
+            {selectedNode.tags?.length > 0 && (
+              <div style={glassCardStyle}>
+                <div style={glassCardTitleStyle}>Tags</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {selectedNode.tags.map(tag => (
+                    <span key={tag} style={{
+                      fontSize: 8, letterSpacing: 1, padding: '4px 8px',
+                      background: `${color}22`, border: `1px solid ${color}44`,
+                      color, borderRadius: 8, textTransform: 'uppercase'
+                    }}>{tag}</span>
+                  ))}
+                </div>
               </div>
             )}
-            {connected.map(({ node, edge, direction }, i) => {
-              const nColor = getDomainColor(node.domain)
-              return (
-                <div key={i}
-                  onClick={() => setSelectedNode(node)}
-                  style={{
-                    padding: '8px 16px', cursor: 'pointer',
-                    borderBottom: '1px solid var(--border)',
-                    transition: 'background 0.15s',
-                    display: 'flex', alignItems: 'center', gap: 10
+
+            {/* Add Entity Section */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>Create Connection</div>
+              {!showAddEntity ? (
+                <button onClick={() => setShowAddEntity(true)} style={{
+                  width: '100%', padding: '8px',
+                  background: 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))',
+                  border: '1px solid rgba(61,123,212,0.5)',
+                  color: '#c8e4ff', fontSize: 9, letterSpacing: 1.5, borderRadius: 8,
+                  transition: 'all 0.2s', cursor: 'pointer',
+                  boxShadow: '0 0 12px rgba(61,123,212,0.25)'
+                }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.35), rgba(61,123,212,0.12))'
+                    e.currentTarget.style.boxShadow = '0 0 16px rgba(61,123,212,0.4)'
+                    e.currentTarget.style.transform = 'translateY(-2px)'
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))'
+                    e.currentTarget.style.boxShadow = '0 0 12px rgba(61,123,212,0.25)'
+                    e.currentTarget.style.transform = 'translateY(0)'
+                  }}
                 >
-                  <div style={{
-                    width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                    background: nColor, boxShadow: `0 0 4px ${nColor}`
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 2 }}>
-                      {node.label}
-                    </div>
-                    <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1 }}>
-                      {direction === 'out' ? '→' : '←'} {formatRelationship(edge.relationship)}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 7, color: nColor, letterSpacing: 1, flexShrink: 0 }}>
-                    {node.domain?.slice(0, 3).toUpperCase()}
+                  ➕ ADD ENTITY
+                </button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <input
+                    type="text"
+                    placeholder="Entity name..."
+                    value={newEntityName}
+                    onChange={e => setNewEntityName(e.target.value)}
+                    style={{
+                      padding: '6px 8px', fontSize: 9,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                      borderRadius: 6, outline: 'none'
+                    }}
+                  />
+                  <select
+                    value={newEntityDomain}
+                    onChange={e => setNewEntityDomain(e.target.value)}
+                    style={{
+                      padding: '6px 8px', fontSize: 9,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                      borderRadius: 6, outline: 'none'
+                    }}
+                  >
+                    <option value="geopolitics">Geopolitics</option>
+                    <option value="economics">Economics</option>
+                    <option value="defense">Defense</option>
+                    <option value="technology">Technology</option>
+                    <option value="climate">Climate</option>
+                    <option value="society">Society</option>
+                    <option value="organization">Organization</option>
+                    <option value="person">Person</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Relationship (e.g., ALLIED_WITH)..."
+                    value={newRelationship}
+                    onChange={e => setNewRelationship(e.target.value)}
+                    style={{
+                      padding: '6px 8px', fontSize: 9,
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-primary)',
+                      borderRadius: 6, outline: 'none'
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={handleAddEntity} style={{
+                      flex: 1, padding: '6px', fontSize: 8,
+                      background: 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))',
+                      border: '1px solid rgba(61,123,212,0.5)',
+                      color: '#c8e4ff', borderRadius: 6, cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 0 12px rgba(61,123,212,0.25)'
+                    }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.35), rgba(61,123,212,0.12))'
+                        e.currentTarget.style.boxShadow = '0 0 16px rgba(61,123,212,0.4)'
+                        e.currentTarget.style.transform = 'translateY(-2px)'
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))'
+                        e.currentTarget.style.boxShadow = '0 0 12px rgba(61,123,212,0.25)'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }}
+                    >
+                      ✓ SAVE
+                    </button>
+                    <button onClick={() => setShowAddEntity(false)} style={{
+                      flex: 1, padding: '6px', fontSize: 8,
+                      background: 'transparent', border: '1px solid var(--border)',
+                      color: 'var(--text-dim)', borderRadius: 6, cursor: 'pointer'
+                    }}>
+                      ✕ CANCEL
+                    </button>
                   </div>
                 </div>
-              )
-            })}
-          </>
+              )}
+            </div>
+
+            {/* Recent Events */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>Recent Events</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  { date: '2 days ago', title: 'Strategic Announcement', desc: 'Major policy decision announced' },
+                  { date: '5 days ago', title: 'Trade Agreement', desc: 'Bilateral agreement signed with partners' },
+                  { date: '1 week ago', title: 'Policy Update', desc: 'New regulatory framework issued' }
+                ].map((item, i) => (
+                  <div key={i} style={{
+                    paddingBottom: i < 2 ? 8 : 0,
+                    borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
+                      <span style={{ fontSize: 10, color: 'rgba(240,244,255,0.85)', fontWeight: 500 }}>
+                        {item.title}
+                      </span>
+                      <span style={{ fontSize: 8, color: 'rgba(240,244,255,0.5)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                        {item.date}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 9, color: 'rgba(240,244,255,0.65)', lineHeight: 1.4 }}>
+                      {item.desc}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Media */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>Media</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { type: 'image', label: 'Image', icon: '🖼' },
+                  { type: 'video', label: 'Video', icon: '▶' },
+                  { type: 'document', label: 'Document', icon: '📄' },
+                  { type: 'chart', label: 'Analytics', icon: '📊' }
+                ].map((media, i) => (
+                  <div key={i} style={{
+                    padding: '10px',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '8px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 4
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                    e.currentTarget.style.borderColor = 'rgba(61,123,212,0.3)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
+                  }}
+                  >
+                    <span style={{ fontSize: 14, opacity: 0.5 }}>{media.icon}</span>
+                    <span style={{ fontSize: 8, color: 'rgba(240,244,255,0.6)', letterSpacing: 0.5 }}>
+                      {media.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* External Links */}
+            <div style={glassCardStyle}>
+              <div style={glassCardTitleStyle}>External Links</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[
+                  { 
+                    label: 'Wikipedia', 
+                    url: `https://en.wikipedia.org/wiki/${encodeURIComponent(selectedNode.label.replace(/ /g, '_'))}`, 
+                    icon: '🌐' 
+                  },
+                  { 
+                    label: 'Google Search', 
+                    url: `https://www.google.com/search?q=${encodeURIComponent(selectedNode.label)}`, 
+                    icon: '🔍' 
+                  },
+                  { 
+                    label: 'News Archive', 
+                    url: `https://news.google.com/search?q=${encodeURIComponent(selectedNode.label)}`, 
+                    icon: '📰' 
+                  }
+                ].map((link, i) => (
+                  <a key={i}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => {
+                      // Ensure external navigation
+                      e.stopPropagation()
+                    }}
+                    style={{
+                      fontSize: 10,
+                      color: '#3d7bd4',
+                      textDecoration: 'none',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: 'rgba(61,123,212,0.05)'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.color = '#c8e4ff'
+                      e.currentTarget.style.background = 'rgba(61,123,212,0.12)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.color = '#3d7bd4'
+                      e.currentTarget.style.background = 'rgba(61,123,212,0.05)'
+                    }}
+                  >
+                    <span style={{ fontSize: 12, opacity: 0.55 }}>{link.icon}</span>
+                    <span style={{ flex: 1 }}>{link.label}</span>
+                    <span style={{ fontSize: 8, opacity: 0.6 }}>→</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
+        {/* AI ANALYSIS TAB */}
         {tab === 'ai' && (
-          <div style={{ padding: '0 14px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <textarea
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleQuery() } }}
               placeholder={`Ask about ${selectedNode.label}...`}
               style={{
-                width: '100%', height: 64, resize: 'none', marginBottom: 8,
-                background: 'var(--bg-card)', border: '1px solid var(--border)',
+                width: '100%', height: 64, resize: 'none',
+                background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
                 color: 'var(--text-primary)', fontSize: 10, padding: 8,
-                outline: 'none', lineHeight: 1.6, marginTop: 8
+                outline: 'none', lineHeight: 1.6, borderRadius: 8
               }}
             />
             <button onClick={handleQuery} disabled={loading} style={{
               width: '100%', padding: '8px',
-              background: loading ? 'transparent' : `${color}18`,
-              border: `1px solid ${color}44`,
-              color, fontSize: 9, letterSpacing: 2,
-              transition: 'all 0.2s', opacity: loading ? 0.6 : 1
-            }}>
+              background: loading ? 'transparent' : 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))',
+              border: `1px solid rgba(61,123,212,0.5)`,
+              color: '#c8e4ff', fontSize: 9, letterSpacing: 2,
+              transition: 'all 0.2s', opacity: loading ? 0.6 : 1,
+              borderRadius: 8, cursor: loading ? 'default' : 'pointer',
+              boxShadow: loading ? 'none' : '0 0 12px rgba(61,123,212,0.25)'
+            }}
+              onMouseEnter={e => {
+                if (!loading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.35), rgba(61,123,212,0.12))'
+                  e.currentTarget.style.boxShadow = '0 0 16px rgba(61,123,212,0.4)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!loading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))'
+                  e.currentTarget.style.boxShadow = '0 0 12px rgba(61,123,212,0.25)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }
+              }}
+            >
               {loading ? 'QUERYING NEPTUNE AI...' : '⚡ ANALYSE'}
             </button>
 
@@ -272,23 +669,23 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
 
             {aiResponse && !loading && (
               <div style={{
-                marginTop: 12, padding: 12,
-                background: 'var(--bg-card)',
-                border: `1px solid ${color}22`,
+                ...glassCardStyle,
                 borderLeft: `2px solid ${color}88`,
-                fontSize: 10, color: 'var(--text-secondary)',
-                lineHeight: 1.75
+                background: `${color}08`
               }}>
-                {aiResponse}
+                <div style={glassCardTitleStyle}>Analysis Result</div>
+                <div style={{
+                  fontSize: 10, color: 'var(--text-secondary)',
+                  lineHeight: 1.75
+                }}>
+                  {aiResponse}
+                </div>
               </div>
             )}
 
-            {/* Suggested queries */}
             {!aiResponse && !loading && (
-              <div style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 8, letterSpacing: 2, color: 'var(--text-dim)', marginBottom: 8 }}>
-                  SUGGESTED
-                </div>
+              <div style={{ marginTop: 8 }}>
+                <div style={glassCardTitleStyle}>Suggested Queries</div>
                 {[
                   `What is ${selectedNode.label}'s strategic significance?`,
                   `Key risks involving ${selectedNode.label}?`,
@@ -297,19 +694,141 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
                   <div key={i}
                     onClick={() => { setQuery(q); setTimeout(handleQuery, 50) }}
                     style={{
-                      padding: '7px 10px', marginBottom: 5, cursor: 'pointer',
-                      background: 'var(--bg-card)', border: '1px solid var(--border)',
+                      padding: '8px', marginBottom: 6, cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)',
                       fontSize: 9, color: 'var(--text-secondary)', lineHeight: 1.5,
-                      transition: 'all 0.15s'
+                      borderRadius: 8, transition: 'all 0.15s'
                     }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = `${color}44`}
-                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = `${color}44`
+                      e.currentTarget.style.background = `${color}12`
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = 'var(--border)'
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+                    }}
                   >{q}</div>
                 ))}
               </div>
             )}
           </div>
         )}
+
+        {/* LINKS TAB */}
+        {tab === 'links' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {connected.length === 0 && (
+              <div style={{
+                ...glassCardStyle,
+                textAlign: 'center',
+                padding: '16px 12px'
+              }}>
+                <div style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: 1 }}>
+                  NO CONNECTIONS
+                </div>
+              </div>
+            )}
+
+            {connected.map(({ node, edge, direction }, i) => {
+              const nColor = getDomainColor(node.domain)
+              return (
+                <div
+                  key={i}
+                  onClick={() => setSelectedNode(node)}
+                  style={{
+                    ...glassCardStyle,
+                    borderLeft: `2px solid ${nColor}`,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s ease',
+                    background: 'rgba(255,255,255,0.04)',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.borderColor = nColor
+                    e.currentTarget.style.background = `${nColor}12`
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.borderColor = `${nColor}`
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-primary)', fontWeight: 500, marginBottom: 3 }}>
+                      {node.label}
+                    </div>
+                    <div style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 4 }}>
+                      {direction === 'out' ? '→' : '←'} {formatRelationship(edge.relationship)}
+                    </div>
+                    <span style={{
+                      fontSize: 7, letterSpacing: 1, padding: '3px 6px',
+                      background: `${nColor}18`, border: `1px solid ${nColor}44`,
+                      color: nColor, textTransform: 'uppercase', borderRadius: 6,
+                      display: 'inline-block'
+                    }}>
+                      {node.domain}
+                    </span>
+                  </div>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      handleRemoveEdge(edge)
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-dim)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      transition: 'color 0.2s',
+                      lineHeight: 1
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#c94040'}
+                    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+      </div>
+
+      {/* Delete Entity Footer Button */}
+      <div style={{
+        padding: '12px 14px',
+        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        flexShrink: 0,
+        background: 'rgba(0,0,0,0.2)'
+      }}>
+        <button onClick={handleDeleteEntity} style={{
+          width: '100%', padding: '8px',
+          background: 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))',
+          border: '1px solid rgba(61,123,212,0.5)',
+          color: '#c8e4ff', fontSize: 9, letterSpacing: 2,
+          borderRadius: 8, cursor: 'pointer',
+          transition: 'all 0.2s',
+          boxShadow: '0 0 12px rgba(61,123,212,0.25)'
+        }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.35), rgba(61,123,212,0.12))'
+            e.currentTarget.style.boxShadow = '0 0 16px rgba(61,123,212,0.4)'
+            e.currentTarget.style.transform = 'translateY(-2px)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(61,123,212,0.25), rgba(61,123,212,0.08))'
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(61,123,212,0.25)'
+            e.currentTarget.style.transform = 'translateY(0)'
+          }}
+        >
+          🗑 DELETE ENTITY
+        </button>
       </div>
     </div>
   )

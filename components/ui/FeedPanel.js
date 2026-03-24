@@ -67,17 +67,23 @@ export default function FeedPanel() {
   return (
     <div style={{
       width: 268, height: '100vh', flexShrink: 0,
-      background: 'var(--bg-panel)',
-      borderRight: '1px solid var(--border)',
+      background: 'rgba(8, 13, 31, 0.25)',
+      backdropFilter: 'blur(18px)',
+      WebkitBackdropFilter: 'blur(18px)',
+      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
       display: 'flex', flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)'
     }}>
 
       {/* Header */}
       <div style={{
         padding: '10px 14px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-card)', flexShrink: 0
+        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+        background: 'rgba(11, 18, 40, 0.4)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
