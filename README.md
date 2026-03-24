@@ -31,6 +31,29 @@
 
 ---
 
+## UI/UX Enhancements (March 2026)
+
+The application has been enhanced with modern glassmorphic design and improved user experience:
+
+### Visual Improvements
+- **Blue gradient buttons** — All primary action buttons (Add Entity, Analyse, Delete) now use a refined blue gradient with soft glow effects
+- **Transparent panels** — Graph is now visible through the left and right panels with enhanced blur effects (glassmorphic style)
+- **Frosted glass cards** — All content cards use consistent glass morphism styling with soft borders and blur effects
+- **Sidebar restructure** — Navigation icons at top, vertical "NEPTUNE" branding at bottom, minimal dark glass style
+
+### Feature Enhancements
+- **3-tab entity panel** — Overview (description, details, tags, create entity), AI Analysis (queries, suggestions), Links (connected entities with edge removal)
+- **Entity management** — Add new entities with relationships, delete entities and all connected edges, remove individual relationships
+- **Instant updates** — All entity and relationship changes update the graph instantly without full page re-renders
+- **Smooth animations** — Consistent 0.2s transitions, hover lift effects, enhanced glows on interaction
+
+### Modified Files
+- `components/graph/NodePanel.js` — 3-tab system, blue gradient buttons, glass cards, entity management
+- `components/ui/Sidebar.js` — Navigation restructure, vertical branding, glass styling
+- `components/ui/FeedPanel.js` — Increased transparency, soft gradients, enhanced blur
+
+---
+
 ## File-by-File Reference
 
 ### Root Config

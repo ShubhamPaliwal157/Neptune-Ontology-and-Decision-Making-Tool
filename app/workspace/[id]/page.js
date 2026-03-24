@@ -8,7 +8,6 @@ import GraphCanvas from '@/components/graph/GraphCanvas'
 import FeedPanel from '@/components/ui/FeedPanel'
 import NodePanel from '@/components/graph/NodePanel'
 import DecisionWorkspace from '@/components/workspace/DecisionWorkspace'
-import NeptuneBackground from '@/components/ui/NeptuneBackground'
 
 function WorkspacePage({ params }) {
   const { id } = use(params)
@@ -162,9 +161,25 @@ function WorkspacePage({ params }) {
     <main style={{
       width: '100vw', height: '100vh',
       overflow: 'hidden', position: 'relative',
-      background: 'var(--bg-base)',
+      background: '#060810',
+      fontFamily: '"Sora", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     }}>
-      <NeptuneBackground />
+      {/* Static background - no video */}
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        background: 'linear-gradient(135deg, rgba(61,123,212,0.03) 0%, rgba(8,13,31,1) 50%, rgba(112,80,184,0.02) 100%)',
+      }} />
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }} />
 
       <div style={{
         display: 'flex', height: '100vh',
@@ -190,6 +205,7 @@ function WorkspacePage({ params }) {
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
                 graphContext={graphContext}
+                setGraphData={setGraphData}
               />
             </>
           )}

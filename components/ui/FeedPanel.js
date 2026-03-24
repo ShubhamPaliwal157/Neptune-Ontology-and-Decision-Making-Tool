@@ -76,17 +76,22 @@ export default function FeedPanel({ feedData }) {
   return (
     <div style={{
       width: 268, height: '100vh', flexShrink: 0,
-      background: 'var(--bg-panel)',
-      borderRight: '1px solid var(--border)',
+      background: 'linear-gradient(180deg, rgba(11, 18, 40, 0.85) 0%, rgba(8, 13, 31, 0.92) 100%)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      borderRight: '1px solid rgba(61, 123, 212, 0.15)',
       display: 'flex', flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      backgroundImage: 'linear-gradient(135deg, rgba(61, 123, 212, 0.08) 0%, transparent 60%)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
     }}>
 
       {/* Header */}
       <div style={{
         padding: '10px 14px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--bg-card)', flexShrink: 0
+        borderBottom: '1px solid rgba(61, 123, 212, 0.12)',
+        background: 'rgba(11, 18, 40, 0.6)',
+        flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
