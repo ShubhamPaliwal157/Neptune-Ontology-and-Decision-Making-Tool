@@ -26,6 +26,16 @@ function WorkspacePage({ params }) {
   // Workspace metadata (name, domain, etc.)
   const [workspace, setWorkspace]   = useState(null)
 
+  // Entity to auto-select from URL param
+  const [initialEntityId, setInitialEntityId] = useState(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const entityId = params.get('entity')
+    if (entityId) setInitialEntityId(entityId)
+  }, [])
+
   // ── Load workspace metadata + graph on mount ────────────────────────────────
   useEffect(() => {
     if (!id) return
@@ -144,6 +154,7 @@ function WorkspacePage({ params }) {
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
+                initialEntityId={initialEntityId}
               />
               <NodePanel
                 selectedNode={selectedNode}

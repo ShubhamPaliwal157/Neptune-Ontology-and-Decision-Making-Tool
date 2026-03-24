@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -327,6 +327,46 @@ function AllWorkspacesModal({ workspaces, onClose, onCreateNew, onDelete }) {
   )
 }
 
+function SearchResultRow({ result }) {
+  const color = DOMAIN_COLORS[result.entityDomain] || '#3d7bd4'
+  const href  = `/workspace/${result.workspaceId}?entity=${result.entityId}`
+  return (
+    <a
+      href={href}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 14px', textDecoration: 'none',
+        borderBottom: '1px solid rgba(58,110,200,0.08)',
+        transition: 'background 0.12s',
+        background: 'transparent',
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = 'rgba(61,123,212,0.08)'}
+      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    >
+      {/* Domain dot */}
+      <div style={{
+        width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+        background: color, boxShadow: `0 0 5px ${color}99`,
+      }} />
+      {/* Entity name */}
+      <span style={{ fontSize: 12, color: '#c8e4ff', letterSpacing: 0.5, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {result.entityName}
+      </span>
+      {/* Type badge */}
+      <span style={{
+        fontSize: 9, letterSpacing: 1, color: color,
+        border: `1px solid ${color}55`, padding: '1px 6px', flexShrink: 0,
+      }}>
+        {(result.entityType || 'concept').toUpperCase()}
+      </span>
+      {/* Workspace name */}
+      <span style={{ fontSize: 10, color: '#4a6b8a', flexShrink: 0, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {result.workspaceName}
+      </span>
+    </a>
+  )
+}
+
 function DashboardHome() {
   const { user } = useAuth()
   const [workspaces, setWorkspaces] = useState([])
@@ -334,9 +374,53 @@ function DashboardHome() {
   const [showAll, setShowAll]        = useState(false)
   const [greeting, setGreeting]      = useState('')
 
+  // Search state
+  const [searchQuery, setSearchQuery]       = useState('')
+  const [searchResults, setSearchResults]   = useState([])
+  const [searchLoading, setSearchLoading]   = useState(false)
+  const [showSearchDrop, setShowSearchDrop] = useState(false)
+  const searchContainerRef = useRef(null)
+  const searchDebounceRef  = useRef(null)
+
   useEffect(() => {
     const h = new Date().getHours()
     setGreeting(h < 12 ? 'GOOD MORNING' : h < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING')
+  }, [])
+
+  // Debounced search
+  useEffect(() => {
+    if (!user) return
+    clearTimeout(searchDebounceRef.current)
+    if (!searchQuery || searchQuery.length < 2) {
+      setSearchResults([])
+      setShowSearchDrop(false)
+      return
+    }
+    setSearchLoading(true)
+    setShowSearchDrop(true)
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?query=${encodeURIComponent(searchQuery)}&user_id=${user.id}`)
+        const data = await res.json()
+        setSearchResults(data.results || [])
+      } catch {
+        setSearchResults([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(searchDebounceRef.current)
+  }, [searchQuery, user])
+
+  // Click-outside to dismiss search dropdown
+  useEffect(() => {
+    const handler = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSearchDrop(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   useEffect(() => {
@@ -436,7 +520,8 @@ function DashboardHome() {
         borderBottom: '1px solid rgba(58,110,200,0.12)',
         background: 'rgba(3,5,12,0.75)', backdropFilter: 'blur(12px)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 140 }}>
           <div style={{
             width: 30, height: 30, borderRadius: '50%',
             background: '#2558b8',
@@ -447,7 +532,62 @@ function DashboardHome() {
           <span style={{ fontSize: 13, letterSpacing: 3, color: '#7aaeee', fontWeight: 600 }}>NEPTUNE</span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+        {/* Search — center */}
+        <div ref={searchContainerRef} style={{ position: 'relative', width: 340 }}>
+          <input
+            type="text"
+            placeholder="SEARCH ENTITIES..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onFocus={() => { if (searchQuery.length >= 2) setShowSearchDrop(true) }}
+            onKeyDown={e => { if (e.key === 'Escape') { setShowSearchDrop(false); setSearchQuery('') } }}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(7,11,28,0.85)',
+              border: '1px solid rgba(58,110,200,0.25)',
+              color: '#c8e4ff', fontSize: 11, letterSpacing: 2,
+              padding: '7px 14px',
+              fontFamily: 'var(--font-mono)',
+              outline: 'none',
+              transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'}
+            onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderColor = 'rgba(58,110,200,0.25)' }}
+          />
+
+          {/* Dropdown */}
+          {showSearchDrop && (
+            <div style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 100,
+              background: 'rgba(7,11,28,0.97)',
+              border: '1px solid rgba(58,110,200,0.25)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+              maxHeight: 320, overflowY: 'auto',
+            }}>
+              {searchLoading ? (
+                <div style={{ padding: '14px 16px', display: 'flex', gap: 5, alignItems: 'center' }}>
+                  {[0,1,2].map(i => (
+                    <div key={i} style={{
+                      width: 5, height: 5, borderRadius: '50%', background: '#3d7bd4',
+                      animation: `pulse-dot 0.8s ${i*0.15}s infinite`,
+                    }} />
+                  ))}
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div style={{ padding: '14px 16px', fontSize: 10, letterSpacing: 2, color: '#4a6b8a' }}>
+                  NO ENTITIES FOUND
+                </div>
+              ) : (
+                searchResults.map((r, i) => (
+                  <SearchResultRow key={`${r.workspaceId}-${r.entityId}-${i}`} result={r} />
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right side */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, minWidth: 140, justifyContent: 'flex-end' }}>
           <span style={{ fontSize: 13, color: '#6a9aba' }}>
             {user?.email}
           </span>

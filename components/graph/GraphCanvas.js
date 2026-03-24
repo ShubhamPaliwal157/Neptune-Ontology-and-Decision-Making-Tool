@@ -37,7 +37,7 @@ function getNodeSize(node) {
   return Math.max(4, (node.size || 10) * 0.45)
 }
 
-export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }) {
+export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, initialEntityId }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
     nodes: [], edges: [],
@@ -124,7 +124,13 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
 
   useEffect(() => { stateRef.current.filter = filter }, [filter])
 
-  // ── Render loop ────────────────────────────────────────────────────────────
+  // Auto-select node from URL param once data is loaded
+  useEffect(() => {
+    if (!initialEntityId || !stateRef.current.nodes.length) return
+    const node = stateRef.current.nodes.find(n => n.id === initialEntityId)
+    if (node) setSelectedNode(node)
+  }, [initialEntityId, stateRef.current.nodes.length]) // eslint-disable-line
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
