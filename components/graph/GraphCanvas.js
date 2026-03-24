@@ -37,7 +37,7 @@ function getNodeSize(node) {
   return Math.max(4, (node.size || 10) * 0.45)
 }
 
-export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }) {
+export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, initialEntityId }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
     nodes: [], edges: [],
@@ -57,6 +57,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
   const [filter, setFilter] = useState(null)
   const [stats, setStats]   = useState({ nodes: 0, edges: 0 })
   const [hovered, setHovered] = useState(null)
+  const [nodesLoaded, setNodesLoaded] = useState(0)
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -119,12 +120,19 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
       s.visibleEdges = edges.slice(0, 200)
       s.revealIndex  = 200
       setStats({ nodes: nodes.length, edges: edges.length })
+      setNodesLoaded(nodes.length)
     })
   }, [graphData])
 
   useEffect(() => { stateRef.current.filter = filter }, [filter])
 
-  // ── Render loop ────────────────────────────────────────────────────────────
+  // Auto-select node from URL param once data is loaded
+  useEffect(() => {
+    if (!initialEntityId || !nodesLoaded) return
+    const node = stateRef.current.nodes.find(n => n.id === initialEntityId)
+    if (node) setSelectedNode(node)
+  }, [initialEntityId, nodesLoaded])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return

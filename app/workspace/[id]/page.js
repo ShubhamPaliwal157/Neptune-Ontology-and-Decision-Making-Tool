@@ -28,6 +28,16 @@ function WorkspacePage({ params }) {
   const [decisionsData, setDecisionsData] = useState(null)
   const [graphContext, setGraphContext] = useState(null)
 
+  // Entity to auto-select from URL param
+  const [initialEntityId, setInitialEntityId] = useState(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const entityId = params.get('entity')
+    if (entityId) setInitialEntityId(entityId)
+  }, [])
+
   // ── Load graph + context in parallel ───────────────────────────────────────
   useEffect(() => {
     if (!id || !user) return
@@ -199,6 +209,7 @@ function WorkspacePage({ params }) {
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
+                initialEntityId={initialEntityId}
               />
               <NodePanel
                 selectedNode={selectedNode}
