@@ -46,6 +46,7 @@ Deep-space dark glassmorphism with precision typography, restrained motion, and 
 **Overlines / labels:** 10px, DM Sans 600, `letter-spacing: 0.3–0.4em`, uppercase. These precede section headings and act as visual anchors.
 
 **Scale:**
+
 - Hero display: `clamp(64px, 10vw, 132px)`
 - Section headings: `clamp(32px, 4vw, 54px)`, Sora 700
 - Card titles: 22px, Sora 700
@@ -108,6 +109,7 @@ border-radius: 6px;
 color: #c8e4ff;
 font-family: DM Sans; font-size: 13px; font-weight: 600; letter-spacing: 2px;
 ```
+
 Has a `::after` shine overlay: `linear-gradient(135deg, rgba(255,255,255,0.09), transparent 55%)`.
 Hover: brighter background + border, `translateY(-2px)`, blue glow `box-shadow`.
 
@@ -119,6 +121,7 @@ border: 1px solid rgba(255,255,255, 0.1);
 border-radius: 6px;
 color: rgba(240,244,255, 0.58);
 ```
+
 Hover: faint background, brighter border and text, `translateY(-1px)`.
 
 ---

@@ -5,7 +5,6 @@ import GraphCanvas from '@/components/graph/GraphCanvas'
 import FeedPanel from '@/components/ui/FeedPanel'
 import NodePanel from '@/components/graph/NodePanel'
 import DecisionWorkspace from '@/components/workspace/DecisionWorkspace'
-import NeptuneBackground from '@/components/ui/NeptuneBackground'
 
 export default function Home() {
   const [dismissed, setDismissed] = useState(false)
@@ -14,9 +13,24 @@ export default function Home() {
   const [activeDecision, setActiveDecision] = useState(0)
 
   return (
-    <main style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: 'var(--bg-base)' }}>
+    <main style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative', background: '#060810' }}>
 
-      <NeptuneBackground />
+      {/* Static background - no video */}
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        background: 'linear-gradient(135deg, rgba(61,123,212,0.03) 0%, rgba(8,13,31,1) 50%, rgba(112,80,184,0.02) 100%)',
+      }} />
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: 'none',
+        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.015) 1px, transparent 1px)',
+        backgroundSize: '24px 24px',
+      }} />
 
       {/* ── MODAL ── */}
       {!dismissed && (

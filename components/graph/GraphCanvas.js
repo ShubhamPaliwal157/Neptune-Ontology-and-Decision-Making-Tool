@@ -154,6 +154,23 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, 
     resize()
     window.addEventListener('resize', resize)
 
+    /**
+     * project — 3D perspective projection with rotation
+     * 
+     * Transforms 3D graph coordinates (x, y, z) into 2D screen coordinates (sx, sy)
+     * with perspective foreshortening and rotation applied.
+     * 
+     * @param {number} x - X coordinate in graph space
+     * @param {number} y - Y coordinate in graph space
+     * @param {number} z - Z coordinate in graph space
+     * @param {number} rotX - Rotation angle around X axis (pitch)
+     * @param {number} rotY - Rotation angle around Y axis (yaw)
+     * 
+     * @returns {Object} { sx, sy, scale, depth }
+     *   - sx, sy: Screen coordinates
+     *   - scale: Perspective scale factor (for node sizing)
+     *   - depth: Z-depth after rotation (for sorting)
+     */
     const project = (x, y, z, rotX, rotY) => {
       const cosX = Math.cos(rotX), sinX = Math.sin(rotX)
       const cosY = Math.cos(rotY), sinY = Math.sin(rotY)
