@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { mergeDuplicateNodes } from '@/lib/graphUtils'
 
 const DOMAIN_COLORS = {
   geopolitics:  '#c94040',
@@ -67,7 +68,16 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
           fetch('/data/edges.json').then(r => r.json()),
         ])
 
-    dataPromise.then(([nodes, edges]) => {
+    dataPromise.then(([rawNodes, rawEdges]) => {
+      // Apply deduplication before processing
+      const deduplicated = mergeDuplicateNodes(rawNodes, rawEdges)
+      
+      if (deduplicated.mergeCount > 0) {
+        console.log(`GraphCanvas: Merged ${deduplicated.mergeCount} duplicate entities`)
+      }
+      
+      const nodes = deduplicated.nodes
+      const edges = deduplicated.edges
       const s = stateRef.current
 
       nodes.forEach(n => {

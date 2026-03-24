@@ -1,7 +1,13 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { queryGroq } from '@/lib/groq'
-import { getConnectedNodes, getDomainColor, formatRelationship } from '@/lib/graphUtils'
+import { 
+  getConnectedNodes, 
+  getDomainColor, 
+  formatRelationship,
+  addEntityWithDeduplication,
+  mergeDuplicateNodes
+} from '@/lib/graphUtils'
 
 // Glassmorphic sub-card styling for content blocks
 const glassCardStyle = {
@@ -76,15 +82,37 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
 
   useEffect(() => {
     if (graphData) {
-      setNodes(graphData.nodes || [])
-      setEdges(graphData.edges || [])
+      // Apply deduplication to incoming graph data
+      const deduplicated = mergeDuplicateNodes(graphData.nodes || [], graphData.edges || [])
+      
+      if (deduplicated.mergeCount > 0) {
+        console.log(`Merged ${deduplicated.mergeCount} duplicate entities`)
+        // Update parent graph data if setter is available
+        if (setGraphData) {
+          setGraphData({ nodes: deduplicated.nodes, edges: deduplicated.edges })
+        }
+      }
+      
+      setNodes(deduplicated.nodes)
+      setEdges(deduplicated.edges)
       return
     }
+    
     Promise.all([
       fetch('/data/nodes.json').then(r => r.json()),
       fetch('/data/edges.json').then(r => r.json()),
-    ]).then(([n, e]) => { setNodes(n); setEdges(e) })
-  }, [graphData])
+    ]).then(([n, e]) => {
+      // Apply deduplication to loaded data
+      const deduplicated = mergeDuplicateNodes(n, e)
+      
+      if (deduplicated.mergeCount > 0) {
+        console.log(`Merged ${deduplicated.mergeCount} duplicate entities from data files`)
+      }
+      
+      setNodes(deduplicated.nodes)
+      setEdges(deduplicated.edges)
+    })
+  }, [graphData, setGraphData])
 
   useEffect(() => {
     if (!selectedNode) return
@@ -143,40 +171,38 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
     setConnected(getConnectedNodes(selectedNode.id, newEdges, nodes))
   }
 
-  // Add new entity with relationship
+  // Add new entity with relationship (with deduplication)
   const handleAddEntity = () => {
     if (!newEntityName.trim() || !newRelationship.trim()) {
       alert('Please enter entity name and relationship')
       return
     }
 
-    // Create new node
-    const newNode = {
-      id: newEntityName.toUpperCase().replace(/\s+/g, '_'),
-      label: newEntityName,
-      domain: newEntityDomain,
-      type: 'entity',
-      size: 8,
-      tags: [],
-    }
+    // Use deduplication system
+    const result = addEntityWithDeduplication(
+      newEntityName,
+      newEntityDomain,
+      newRelationship,
+      selectedNode.id,
+      nodes,
+      edges
+    )
 
-    // Create bidirectional edge
-    const newEdge = {
-      source: selectedNode.id,
-      target: newNode.id,
-      relationship: newRelationship.toUpperCase().replace(/\s+/g, '_'),
-    }
-
-    const updatedNodes = [...nodes, newNode]
-    const updatedEdges = [...edges, newEdge]
-
+    // Update graph state
     if (setGraphData) {
-      setGraphData({ nodes: updatedNodes, edges: updatedEdges })
+      setGraphData({ nodes: result.nodes, edges: result.edges })
     } else {
-      setNodes(updatedNodes)
-      setEdges(updatedEdges)
+      setNodes(result.nodes)
+      setEdges(result.edges)
     }
-    setConnected(getConnectedNodes(selectedNode.id, updatedEdges, updatedNodes))
+    
+    // Update connected nodes
+    setConnected(getConnectedNodes(selectedNode.id, result.edges, result.nodes))
+    
+    // Show feedback to user
+    if (!result.wasNew) {
+      alert(`Entity "${result.addedNode.label}" already exists. Connected to existing entity.`)
+    }
     
     // Reset form
     setNewEntityName('')
