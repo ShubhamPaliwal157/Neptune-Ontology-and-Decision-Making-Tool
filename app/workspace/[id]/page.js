@@ -14,8 +14,8 @@ function WorkspacePage({ params }) {
   const { id } = use(params)
   const { user } = useAuth()
 
-  const [activeView, setActiveView]     = useState('graph')
-  const [selectedNode, setSelectedNode] = useState(null)
+  const [activeView, setActiveView]         = useState('graph')
+  const [selectedNode, setSelectedNode]     = useState(null)
   const [activeDecision, setActiveDecision] = useState(0)
 
   // Graph data loaded from the API
@@ -23,31 +23,67 @@ function WorkspacePage({ params }) {
   const [loadState, setLoadState]   = useState('loading') // 'loading' | 'ready' | 'error'
   const [errorMsg, setErrorMsg]     = useState('')
 
-  // Workspace metadata (name, domain, etc.)
-  const [workspace, setWorkspace]   = useState(null)
+  // Workspace metadata & real feed/decisions
+  const [workspace, setWorkspace]     = useState(null)
+  const [feedData, setFeedData]       = useState(null)
+  const [decisionsData, setDecisionsData] = useState(null)
+  const [graphContext, setGraphContext] = useState(null)
 
-  // ── Load workspace metadata + graph on mount ────────────────────────────────
+  // ── Load graph + context in parallel ───────────────────────────────────────
   useEffect(() => {
     if (!id) return
 
     async function load() {
       try {
-        // Load graph data
-        const res = await fetch(`/api/workspace/${id}/graph`)
-        if (!res.ok) {
-          const body = await res.json()
+        const [graphRes, ctxRes] = await Promise.all([
+          fetch(`/api/workspace/${id}/graph`),
+          fetch(`/api/workspace/${id}/context`),
+        ])
+
+        if (!graphRes.ok) {
+          const body = await graphRes.json()
           throw new Error(body.error || 'Failed to load graph')
         }
-        const data = await res.json()
+
+        const graphRaw = await graphRes.json()
 
         // Normalise field names: pipeline saves `name`, components expect `label`
-        const nodes = (data.nodes || []).map(n => ({
+        const nodes = (graphRaw.nodes || []).map(n => ({
           ...n,
           label: n.label || n.name,
         }))
+        const edges = graphRaw.edges || []
 
-        setGraphData({ nodes, edges: data.edges || [] })
-        setWorkspace({ id, name: data.workspace_name || 'Workspace' })
+        setGraphData({ nodes, edges })
+
+        // Build graphContext for AI queries
+        const ctx = {
+          nodeCount:     nodes.length,
+          edgeCount:     edges.length,
+          sampleNodes:   nodes.slice(0, 30).map(n => n.label || n.name),
+          workspaceName: graphRaw.workspace_name || 'Intelligence Workspace',
+          domains:       graphRaw.domains || [],
+        }
+        setGraphContext(ctx)
+
+        // Context (feed + decisions + workspace meta) — non-blocking
+        if (ctxRes.ok) {
+          const ctxData = await ctxRes.json()
+          setWorkspace(ctxData.workspace || { id, name: graphRaw.workspace_name || 'Workspace' })
+          setFeedData(ctxData.feed || null)
+          setDecisionsData(ctxData.decisions || null)
+          // Enrich graphContext with workspace metadata from context
+          if (ctxData.workspace) {
+            setGraphContext(prev => ({
+              ...prev,
+              workspaceName: ctxData.workspace.name || prev.workspaceName,
+              domains:       ctxData.workspace.domains || prev.domains,
+            }))
+          }
+        } else {
+          setWorkspace({ id, name: graphRaw.workspace_name || 'Workspace' })
+        }
+
         setLoadState('ready')
       } catch (err) {
         setErrorMsg(err.message)
@@ -121,7 +157,7 @@ function WorkspacePage({ params }) {
     )
   }
 
-  // ── Main workspace UI (mirrors app/page.js but uses real data) ──────────────
+  // ── Main workspace UI ───────────────────────────────────────────────────────
   return (
     <main style={{
       width: '100vw', height: '100vh',
@@ -134,12 +170,16 @@ function WorkspacePage({ params }) {
         display: 'flex', height: '100vh',
         position: 'relative', zIndex: 1,
       }}>
-        <Sidebar activeView={activeView} setActiveView={setActiveView} />
+        <Sidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          workspaceName={workspace?.name}
+        />
 
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {activeView === 'graph' && (
             <>
-              <FeedPanel />
+              <FeedPanel feedData={feedData} />
               <GraphCanvas
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
@@ -149,11 +189,14 @@ function WorkspacePage({ params }) {
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
+                graphContext={graphContext}
               />
             </>
           )}
           {activeView === 'decisions' && (
             <DecisionWorkspace
+              decisionsData={decisionsData}
+              graphContext={graphContext}
               activeDecision={activeDecision}
               setActiveDecision={setActiveDecision}
             />
@@ -165,3 +208,4 @@ function WorkspacePage({ params }) {
 }
 
 export default withAuth(WorkspacePage)
+

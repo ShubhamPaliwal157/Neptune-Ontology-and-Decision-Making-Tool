@@ -21,7 +21,7 @@ const ALERT_POOL = [
   { id: 6, sev: 'HIGH',     text: 'APT41 lateral movement detected in PSU networks', time: '03:44' },
 ]
 
-export default function FeedPanel() {
+export default function FeedPanel({ feedData }) {
   const [items, setItems]       = useState([])
   const [visible, setVisible]   = useState([])
   const [alerts, setAlerts]     = useState([])
@@ -30,11 +30,18 @@ export default function FeedPanel() {
   const tickRef = useRef(0)
 
   useEffect(() => {
-    fetch('/data/feed.json').then(r => r.json()).then(data => {
-      setItems(data)
-      setVisible(data.slice(0, 6))
-    })
-  }, [])
+    if (feedData && feedData.length > 0) {
+      // Real workspace data provided — use it directly
+      setItems(feedData)
+      setVisible(feedData.slice(0, 6))
+    } else {
+      // Fallback: public demo data
+      fetch('/data/feed.json').then(r => r.json()).then(data => {
+        setItems(data)
+        setVisible(data.slice(0, 6))
+      })
+    }
+  }, [feedData])
 
   // Reveal feed items progressively
   useEffect(() => {

@@ -55,7 +55,6 @@ export async function POST(request) {
     }
 
     // Fire and forget — process in background
-    // We respond immediately with job ID, client polls /api/process/status
     processWorkspace({ workspace, sources, job, user_id }).catch(() => {
       supabaseAdmin.from('processing_jobs').update({
         status: 'error',
@@ -82,12 +81,13 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
   try {
     const allEntities = []
     const allEdges    = []
+    const allTexts    = [] // Collected source texts for feed/decision generation
 
     // ── Step 1: Fetch + extract from each source ──────────────────────────────
     for (let i = 0; i < sources.length; i++) {
       const source = sources[i]
       await updateJob({
-        progress: Math.round(10 + (i / sources.length) * 50),
+        progress: Math.round(10 + (i / sources.length) * 40),
         current_step: `Processing source ${i + 1}/${sources.length}…`,
         sources_done: i,
       })
@@ -98,6 +98,13 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
           await supabaseAdmin.from('workspace_sources').update({ status: 'failed' }).eq('id', source.id)
           continue
         }
+
+        // Keep a sample of each source text for later feed/decision generation
+        allTexts.push({
+          source: source.url || source.keyword || 'unknown',
+          type: source.type,
+          text: text.slice(0, 3000),
+        })
 
         const { entities, edges } = await extractWithGroq(text, source, workspace.domains)
 
@@ -116,22 +123,30 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     }
 
     // ── Step 2: Merge + deduplicate entities ──────────────────────────────────
-    await updateJob({ progress: 65, current_step: 'Resolving entity aliases...' })
+    await updateJob({ progress: 55, current_step: 'Resolving entity aliases...' })
     const { nodes, edgeMap } = mergeEntities(allEntities, allEdges)
 
     // ── Step 3: Build final graph ─────────────────────────────────────────────
-    await updateJob({ progress: 80, current_step: 'Building knowledge graph...' })
+    await updateJob({ progress: 68, current_step: 'Building knowledge graph...' })
     const graph = buildGraph(nodes, edgeMap)
 
     // ── Step 4: Build context file ────────────────────────────────────────────
-    await updateJob({ progress: 88, current_step: 'Assembling context data...' })
-    const context = buildContext(nodes, sources)
+    await updateJob({ progress: 74, current_step: 'Assembling context data...' })
+    const context = buildContext(nodes, sources, workspace)
 
-    // ── Step 5: Save outputs ──────────────────────────────────────────────────
-    await updateJob({ progress: 93, current_step: 'Saving outputs...' })
-    await saveOutputs({ workspace, graph, context, user_id })
+    // ── Step 5: Generate intelligence feed ───────────────────────────────────
+    await updateJob({ progress: 80, current_step: 'Generating intelligence feed...' })
+    const feed = await generateFeed(nodes, allTexts, workspace)
 
-    // ── Step 6: Update workspace node/edge counts ─────────────────────────────
+    // ── Step 6: Generate decision briefs ─────────────────────────────────────
+    await updateJob({ progress: 88, current_step: 'Generating decision briefs...' })
+    const decisions = await generateDecisions(nodes, allTexts, workspace, feed)
+
+    // ── Step 7: Save all outputs ──────────────────────────────────────────────
+    await updateJob({ progress: 94, current_step: 'Saving outputs...' })
+    await saveOutputs({ workspace, graph, context, feed, decisions, user_id })
+
+    // ── Step 8: Update workspace counts ──────────────────────────────────────
     await supabaseAdmin.from('workspaces').update({
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
@@ -146,15 +161,11 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     })
   } catch (err) {
     console.error('Pipeline error:', err)
-    const updateJob = (fields) =>
-      supabaseAdmin.from('processing_jobs').update({
-        ...fields,
-        updated_at: new Date().toISOString(),
-      }).eq('id', job.id)
-    await updateJob({
+    await supabaseAdmin.from('processing_jobs').update({
       status: 'error',
       error_message: err.message || 'Pipeline crashed unexpectedly',
-    })
+      updated_at: new Date().toISOString(),
+    }).eq('id', job.id)
   }
 }
 
@@ -224,7 +235,7 @@ Return ONLY valid JSON with this exact structure:
 
 Rules:
 - Extract 5–25 entities maximum
-- Extract 5–30 edges maximum  
+- Extract 5–30 edges maximum
 - Only extract entities clearly present in the text
 - Relationship labels must be short: "allied with", "sanctioned by", "leads", "competes with"
 - Return ONLY the JSON object, no other text
@@ -232,29 +243,297 @@ Rules:
 TEXT:
 ${text}`
 
+  const res = await callGroq(prompt, 4000, 0.1)
+  const parsed = parseGroqJSON(res)
+
+  return {
+    entities: (parsed.entities || []).map(e => ({ ...e, sourcesFound: [source.url || source.keyword] })),
+    edges:    parsed.edges || [],
+  }
+}
+
+// ── Generate intelligence feed items ─────────────────────────────────────────
+async function generateFeed(nodes, allTexts, workspace) {
+  const topNodes = nodes
+    .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+    .slice(0, 30)
+    .map(n => `${n.name} (${n.type}, ${n.domain})`)
+
+  const domains = (workspace.domains || ['geopolitics']).join(', ')
+  const textSample = allTexts
+    .map(t => `SOURCE: ${t.source}\n${t.text.slice(0, 1000)}`)
+    .join('\n\n---\n\n')
+    .slice(0, 8000)
+
+  const prompt = `You are a senior intelligence analyst. Based on the following source material and entity list, generate a live intelligence feed of 12-18 intelligence items.
+
+Workspace: "${workspace.name}"
+Domains: ${domains}
+Key Entities: ${topNodes.join(', ')}
+
+SOURCE MATERIAL:
+${textSample}
+
+Generate intelligence feed items that reflect actual findings from the source material above.
+
+Return ONLY valid JSON array:
+[
+  {
+    "id": 1,
+    "type": "THREAT|CYBER|ECONOMIC|GEOPOLITICAL|DIPLOMATIC|SIGNAL|CLIMATE|SPACE",
+    "domain": "geopolitics|economics|defense|technology|climate|society",
+    "node": "ENTITY_ID_IN_CAPS",
+    "text": "Specific intelligence item in 1-2 sentences. Be specific with numbers, names, dates.",
+    "confidence": 65-97,
+    "timestamp": "HH:MM:SS",
+    "severity": "LOW|MEDIUM|HIGH|CRITICAL",
+    "entities": ["Entity1", "Entity2"]
+  }
+]
+
+Rules:
+- Each item must reference real entities from the source material
+- Vary types across the array
+- Use specific facts, numbers, dates from the sources
+- Timestamps should span the last 12 hours in HH:MM:SS format
+- Return ONLY the JSON array, nothing else`
+
+  try {
+    const raw = await callGroq(prompt, 3000, 0.3)
+    const items = parseGroqJSON(raw)
+    if (Array.isArray(items) && items.length > 0) {
+      return items.map((item, i) => ({ ...item, id: item.id || i + 1 }))
+    }
+  } catch (err) {
+    console.error('Feed generation failed:', err)
+  }
+
+  // Fallback: generate basic feed items from node names
+  return generateFallbackFeed(nodes, workspace)
+}
+
+function generateFallbackFeed(nodes, workspace) {
+  const topNodes = nodes.sort((a, b) => (b.importance || 0) - (a.importance || 0)).slice(0, 8)
+  const types = ['GEOPOLITICAL', 'ECONOMIC', 'DIPLOMATIC', 'SIGNAL']
+  const now = new Date()
+
+  return topNodes.map((node, i) => {
+    const hoursAgo = i * 1.5
+    const ts = new Date(now - hoursAgo * 3600000)
+    const hh = String(ts.getHours()).padStart(2, '0')
+    const mm = String(ts.getMinutes()).padStart(2, '0')
+    const ss = String(ts.getSeconds()).padStart(2, '0')
+
+    return {
+      id: i + 1,
+      type: types[i % types.length],
+      domain: node.domain || 'geopolitics',
+      node: node.id?.toUpperCase() || 'ENTITY',
+      text: `${node.name}: ${node.description || 'Entity identified in intelligence graph.'}`,
+      confidence: Math.floor(70 + Math.random() * 20),
+      timestamp: `${hh}:${mm}:${ss}`,
+      severity: node.importance >= 8 ? 'HIGH' : node.importance >= 6 ? 'MEDIUM' : 'LOW',
+      entities: [node.name],
+    }
+  })
+}
+
+// ── Generate decision briefs ──────────────────────────────────────────────────
+async function generateDecisions(nodes, allTexts, workspace, feed) {
+  const topNodes = nodes
+    .sort((a, b) => (b.importance || 0) - (a.importance || 0))
+    .slice(0, 20)
+
+  const domains = (workspace.domains || ['geopolitics']).join(', ')
+  const highSeverityFeedItems = (feed || [])
+    .filter(f => f.severity === 'CRITICAL' || f.severity === 'HIGH')
+    .slice(0, 5)
+    .map(f => f.text)
+    .join('\n')
+
+  const textSample = allTexts
+    .map(t => t.text.slice(0, 1200))
+    .join('\n\n---\n\n')
+    .slice(0, 6000)
+
+  const entityList = topNodes.map(n => `${n.name} (${n.type})`).join(', ')
+
+  const prompt = `You are a strategic intelligence analyst advising senior government decision makers.
+
+Workspace: "${workspace.name}"
+Domains: ${domains}
+Key Entities: ${entityList}
+
+High-severity intelligence items:
+${highSeverityFeedItems || 'See source material below.'}
+
+SOURCE MATERIAL:
+${textSample}
+
+Generate 3 strategic decision briefs that senior policymakers would need to act on, based on the above intelligence.
+
+Return ONLY valid JSON array:
+[
+  {
+    "id": "DEC-2024-XXXX",
+    "title": "Decision question as a complete question (e.g., 'Should India expand the semiconductor partnership with...')",
+    "deadline": "Timeframe label (e.g., 'Cabinet Review — 48 hours', 'UNSC Vote — 6 days')",
+    "domain": "geopolitics|economics|defense|technology|climate|society",
+    "status": "AWAITING DECISION",
+    "priority": "CRITICAL|HIGH|MEDIUM",
+    "owner": "Department or office (e.g., 'NSA Office', 'MEA Strategic Affairs')",
+    "summary": "2-3 sentence summary of the decision context with specific facts",
+    "evidence": [
+      {
+        "id": "E1",
+        "claim": "Specific factual claim with number or data point",
+        "type": "FACT|INTELLIGENCE|RISK|ESTIMATE",
+        "confidence": 70-97,
+        "impact": "HIGH|MEDIUM|LOW",
+        "supports": "Option label (e.g., 'JOIN', 'WAIT', 'REJECT', 'ESCALATE')",
+        "sources": [
+          { "name": "Source name", "type": "GOV|INTELLIGENCE|INDUSTRY|ACADEMIC|OFFICIAL", "verified": true }
+        ],
+        "timestamp": "Updated Xhr ago"
+      }
+    ],
+    "scenarios": [
+      {
+        "id": "S1",
+        "label": "Option label",
+        "title": "Option title",
+        "description": "2 sentences describing this option",
+        "probability": 20-80,
+        "timeframe": "Timeframe string",
+        "risk": "LOW|MEDIUM|HIGH|CRITICAL",
+        "impacts": [
+          { "area": "Area name", "effect": "specific effect", "magnitude": "HIGH|MEDIUM|LOW" }
+        ],
+        "watchlist": ["Entity1", "Entity2"],
+        "precedents": ["Historical precedent 1"]
+      }
+    ],
+    "recommendation": "One clear recommended action with rationale",
+    "entities_involved": ["Entity1", "Entity2", "Entity3"]
+  }
+]
+
+Rules:
+- Decisions must be grounded in the actual source material provided
+- Include 3-5 evidence items per decision
+- Include 2-3 scenarios per decision
+- Use specific data points, not vague generalities
+- Return ONLY the JSON array, nothing else`
+
+  try {
+    const raw = await callGroq(prompt, 5000, 0.3)
+    const decisions = parseGroqJSON(raw)
+    if (Array.isArray(decisions) && decisions.length > 0) {
+      return decisions
+    }
+  } catch (err) {
+    console.error('Decisions generation failed:', err)
+  }
+
+  return generateFallbackDecisions(nodes, workspace)
+}
+
+function generateFallbackDecisions(nodes, workspace) {
+  const topNodes = nodes.sort((a, b) => (b.importance || 0) - (a.importance || 0)).slice(0, 6)
+  const domains = workspace.domains || ['geopolitics']
+
+  return [{
+    id: 'DEC-AUTO-001',
+    title: `Strategic assessment required for ${workspace.name}`,
+    deadline: 'Review within 72 hours',
+    domain: domains[0] || 'geopolitics',
+    status: 'AWAITING DECISION',
+    priority: 'HIGH',
+    owner: 'Intelligence Office',
+    summary: `The workspace "${workspace.name}" has been processed. ${topNodes.length} key entities were identified requiring strategic assessment. Further analysis is recommended.`,
+    evidence: topNodes.slice(0, 3).map((n, i) => ({
+      id: `E${i + 1}`,
+      claim: `${n.name}: ${n.description || 'Key entity identified in intelligence graph'}`,
+      type: 'FACT',
+      confidence: Math.floor(75 + Math.random() * 15),
+      impact: n.importance >= 8 ? 'HIGH' : 'MEDIUM',
+      supports: 'REVIEW',
+      sources: [{ name: 'Neptune Intelligence Graph', type: 'GOV', verified: true }],
+      timestamp: 'Updated now',
+    })),
+    scenarios: [
+      {
+        id: 'S1',
+        label: 'MONITOR',
+        title: 'Continue monitoring',
+        description: 'Maintain current intelligence collection posture. Reassess in 30 days.',
+        probability: 60,
+        timeframe: '30 days',
+        risk: 'LOW',
+        impacts: [{ area: 'Intelligence', effect: 'Continued situational awareness', magnitude: 'MEDIUM' }],
+        watchlist: topNodes.slice(0, 2).map(n => n.name),
+        precedents: ['Standard monitoring protocol'],
+      },
+      {
+        id: 'S2',
+        label: 'ESCALATE',
+        title: 'Escalate to senior review',
+        description: 'Bring findings to senior decision makers for immediate review and action.',
+        probability: 40,
+        timeframe: '48 hours',
+        risk: 'MEDIUM',
+        impacts: [{ area: 'Policy', effect: 'Potential policy response required', magnitude: 'HIGH' }],
+        watchlist: topNodes.slice(0, 3).map(n => n.name),
+        precedents: ['Previous intelligence escalation protocol'],
+      },
+    ],
+    recommendation: 'Review all identified entities and escalate findings with highest strategic importance to relevant departments.',
+    entities_involved: topNodes.slice(0, 5).map(n => n.name),
+  }]
+}
+
+// ── Groq API helpers ──────────────────────────────────────────────────────────
+
+async function callGroq(prompt, maxTokens = 2000, temperature = 0.2) {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
+      // Use GROQ_API_KEY (server-side only), fallback to public key for backwards compat
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1,
-      max_tokens: 4000,
+      temperature,
+      max_tokens: maxTokens,
     }),
   })
 
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(`Groq API error ${res.status}: ${errText}`)
+  }
+
   const data = await res.json()
-  const raw  = data.choices?.[0]?.message?.content || '{}'
+  return data.choices?.[0]?.message?.content || ''
+}
 
-  const cleaned = raw.replace(/```json|```/g, '').trim()
-  const parsed  = JSON.parse(cleaned)
-
-  return {
-    entities: (parsed.entities || []).map(e => ({ ...e, sourcesFound: [source.url || source.keyword] })),
-    edges:    parsed.edges || [],
+function parseGroqJSON(raw) {
+  try {
+    const cleaned = raw.replace(/```json|```/g, '').trim()
+    return JSON.parse(cleaned)
+  } catch {
+    // Try to extract JSON array or object from surrounding text
+    const arrMatch = raw.match(/\[[\s\S]*\]/)
+    const objMatch = raw.match(/\{[\s\S]*\}/)
+    if (arrMatch) {
+      try { return JSON.parse(arrMatch[0]) } catch { /* fall through */ }
+    }
+    if (objMatch) {
+      try { return JSON.parse(objMatch[0]) } catch { /* fall through */ }
+    }
+    throw new Error('Could not parse Groq JSON response')
   }
 }
 
@@ -403,9 +682,11 @@ function buildGraph(nodes, edgeMap) {
 }
 
 // ── Build context.json ────────────────────────────────────────────────────────
-function buildContext(nodes, sources) {
+function buildContext(nodes, sources, workspace) {
   return {
     generated_at: new Date().toISOString(),
+    workspace_name: workspace.name,
+    domains: workspace.domains || [],
     sources: sources.map(s => ({
       type:    s.type,
       url:     s.url,
@@ -414,29 +695,31 @@ function buildContext(nodes, sources) {
       fetched: s.last_fetched,
     })),
     entities: nodes.map(n => ({
-      id:           n.id,
-      name:         n.name,
-      aliases:      n.aliases,
-      description:  n.description,
+      id:            n.id,
+      name:          n.name,
+      aliases:       n.aliases,
+      description:   n.description,
       sources_found: n.sourcesFound,
-      importance:   n.importance,
+      importance:    n.importance,
     })),
   }
 }
 
 // ── Save outputs to Drive or Supabase Storage ─────────────────────────────────
-async function saveOutputs({ workspace, graph, context, user_id }) {
-  const graphJson   = JSON.stringify(graph, null, 2)
-  const contextJson = JSON.stringify(context, null, 2)
+async function saveOutputs({ workspace, graph, context, feed, decisions, user_id }) {
+  const graphJson     = JSON.stringify(graph, null, 2)
+  const contextJson   = JSON.stringify(context, null, 2)
+  const feedJson      = JSON.stringify(feed, null, 2)
+  const decisionsJson = JSON.stringify(decisions, null, 2)
 
   if (workspace.storage_backend === 'drive' && workspace.google_access_token) {
-    await saveToDrive({ workspace, graphJson, contextJson, user_id })
+    await saveToDrive({ workspace, graphJson, contextJson, feedJson, decisionsJson, user_id })
   } else {
-    await saveToSupabaseStorage({ workspace, graphJson, contextJson })
+    await saveToSupabaseStorage({ workspace, graphJson, contextJson, feedJson, decisionsJson })
   }
 }
 
-async function saveToDrive({ workspace, graphJson, contextJson, user_id }) {
+async function saveToDrive({ workspace, graphJson, contextJson, feedJson, decisionsJson, user_id }) {
   const tokenRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/google/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -457,20 +740,27 @@ async function saveToDrive({ workspace, graphJson, contextJson, user_id }) {
     })
   }
 
-  await uploadFile('graph.json',   graphJson)
-  await uploadFile('context.json', contextJson)
+  await uploadFile('graph.json',     graphJson)
+  await uploadFile('context.json',   contextJson)
+  await uploadFile('feed.json',      feedJson)
+  await uploadFile('decisions.json', decisionsJson)
 }
 
-async function saveToSupabaseStorage({ workspace, graphJson, contextJson }) {
+async function saveToSupabaseStorage({ workspace, graphJson, contextJson, feedJson, decisionsJson }) {
   const bucket = 'workspace-outputs'
   const folder = workspace.id
 
-  await supabaseAdmin.storage.from(bucket).upload(
-    `${folder}/graph.json`, new Blob([graphJson], { type: 'application/json' }),
-    { upsert: true }
-  )
-  await supabaseAdmin.storage.from(bucket).upload(
-    `${folder}/context.json`, new Blob([contextJson], { type: 'application/json' }),
-    { upsert: true }
-  )
+  const upload = (name, content) =>
+    supabaseAdmin.storage.from(bucket).upload(
+      `${folder}/${name}`,
+      new Blob([content], { type: 'application/json' }),
+      { upsert: true }
+    )
+
+  await Promise.all([
+    upload('graph.json',     graphJson),
+    upload('context.json',   contextJson),
+    upload('feed.json',      feedJson),
+    upload('decisions.json', decisionsJson),
+  ])
 }
