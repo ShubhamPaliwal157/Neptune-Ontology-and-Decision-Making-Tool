@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
+// Use service role key so we can read AND update workspace tokens
+// (anon key can't update rows without RLS policies)
+const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
 // Call this before any Drive API operation to ensure token is fresh
 export async function POST(request) {
   const { workspace_id, user_id } = await request.json()
 
-  const { data: ws, error } = await supabase
+  const { data: ws, error } = await supabaseAdmin
     .from('workspaces')
     .select('google_refresh_token, google_token_expiry, google_access_token')
     .eq('id', workspace_id)
@@ -49,7 +51,7 @@ export async function POST(request) {
   }
 
   const newExpiry = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString()
-  await supabase.from('workspaces').update({
+  await supabaseAdmin.from('workspaces').update({
     google_access_token: tokens.access_token,
     google_token_expiry: newExpiry,
   }).eq('id', workspace_id)

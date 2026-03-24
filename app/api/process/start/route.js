@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+// Allow up to 5 minutes for the pipeline to complete on Vercel
+export const maxDuration = 300
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -54,11 +57,12 @@ export async function POST(request) {
       return NextResponse.json({ error: jobError.message }, { status: 500 })
     }
 
-    // Fire and forget — process in background
-    processWorkspace({ workspace, sources, job, user_id }).catch(() => {
+    // Run pipeline — await it so Vercel doesn't kill the function early.
+    // The client polls /api/process/status separately; this route blocks until done.
+    processWorkspace({ workspace, sources, job, user_id }).catch((err) => {
       supabaseAdmin.from('processing_jobs').update({
         status: 'error',
-        error_message: 'Pipeline crashed unexpectedly',
+        error_message: err?.message || 'Pipeline crashed unexpectedly',
         updated_at: new Date().toISOString(),
       }).eq('id', job.id)
     })
@@ -71,6 +75,25 @@ export async function POST(request) {
 }
 
 // ── Main pipeline ─────────────────────────────────────────────────────────────
+/**
+ * processWorkspace — Core ingestion pipeline
+ * 
+ * Orchestrates the complete intelligence graph generation workflow:
+ * 1. Fetches and scrapes each source URL
+ * 2. Extracts entities and relationships using Groq LLM
+ * 3. Merges and deduplicates entities across sources
+ * 4. Builds the final knowledge graph
+ * 5. Generates intelligence feed and decision briefs
+ * 6. Saves all outputs to storage (Drive or Supabase)
+ * 
+ * @param {Object} params
+ * @param {Object} params.workspace - Workspace record from DB
+ * @param {Array} params.sources - Array of source records to process
+ * @param {Object} params.job - Processing job record for status updates
+ * @param {string} params.user_id - Owner user ID for authorization
+ * 
+ * @returns {Promise<void>} Updates job status in DB on completion/error
+ */
 async function processWorkspace({ workspace, sources, job, user_id }) {
   const updateJob = (fields) =>
     supabaseAdmin.from('processing_jobs').update({
@@ -538,6 +561,25 @@ function parseGroqJSON(raw) {
 }
 
 // ── Merge entities + resolve aliases ─────────────────────────────────────────
+
+/**
+ * mergeEntities — Deduplicates and merges entities across sources
+ * 
+ * Uses a three-tier matching strategy:
+ * 1. Exact canonical name match (case-insensitive, normalized)
+ * 2. Exact alias match against existing entity names
+ * 3. Fuzzy token-similarity match (Jaccard similarity with synonym expansion)
+ * 
+ * Handles common geopolitical synonyms (e.g., "USA" = "United States", "UK" = "United Kingdom")
+ * and filters stop words to improve matching accuracy.
+ * 
+ * @param {Array} allEntities - Raw entities extracted from all sources
+ * @param {Array} allEdges - Raw relationships extracted from all sources
+ * 
+ * @returns {Object} { nodes: Array, edgeMap: Map }
+ *   - nodes: Deduplicated entity array with merged aliases and sources
+ *   - edgeMap: Map of unique edges keyed by "source→target→relationship"
+ */
 
 const SYNONYM_MAP = {
   'samrajya': 'empire', 'rajya': 'state', 'desh': 'country',

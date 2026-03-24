@@ -31,12 +31,12 @@ function WorkspacePage({ params }) {
 
   // ── Load graph + context in parallel ───────────────────────────────────────
   useEffect(() => {
-    if (!id) return
+    if (!id || !user) return
 
     async function load() {
       try {
         const [graphRes, ctxRes] = await Promise.all([
-          fetch(`/api/workspace/${id}/graph`),
+          fetch(`/api/workspace/${id}/graph${user?.id ? `?user_id=${user.id}` : ''}`),
           fetch(`/api/workspace/${id}/context`),
         ])
 
@@ -92,7 +92,7 @@ function WorkspacePage({ params }) {
     }
 
     load()
-  }, [id])
+  }, [id, user])
 
   // ── Loading screen ──────────────────────────────────────────────────────────
   if (loadState === 'loading') {
@@ -208,4 +208,4 @@ function WorkspacePage({ params }) {
 }
 
 export default withAuth(WorkspacePage)
-
+

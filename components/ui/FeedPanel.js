@@ -55,9 +55,11 @@ export default function FeedPanel({ feedData }) {
     return () => clearInterval(interval)
   }, [items])
 
-  // Stagger alerts — registeredRef prevents StrictMode double-invoke firing duplicate timeouts
+  // Stagger alerts — only show in demo mode (no real feedData)
+  // registeredRef prevents StrictMode double-invoke firing duplicate timeouts
   const alertsRegistered = useRef(false)
   useEffect(() => {
+    if (feedData && feedData.length > 0) return // real data — skip demo alerts
     if (alertsRegistered.current) return
     alertsRegistered.current = true
     ALERT_POOL.forEach((alert, i) => {
@@ -65,7 +67,7 @@ export default function FeedPanel({ feedData }) {
         setAlerts(prev => prev.some(a => a.id === alert.id) ? prev : [alert, ...prev].slice(0, 4))
       }, i * 22000 + 3000)
     })
-  }, [])
+  }, [feedData])
 
   const sevColor = (sev) => ({
     CRITICAL: '#c94040', HIGH: '#c87c3a', MEDIUM: '#b89a30', LOW: '#2a9e58'

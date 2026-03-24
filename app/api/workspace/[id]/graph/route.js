@@ -10,12 +10,21 @@ export async function GET(request, { params }) {
   try {
     const { id } = await params
 
-    // 1. Load workspace record
-    const { data: workspace, error } = await supabaseAdmin
+    // Verify ownership via user_id query param (passed from client)
+    const { searchParams } = new URL(request.url)
+    const user_id = searchParams.get('user_id')
+
+    // 1. Load workspace record — enforce ownership if user_id provided
+    let dbQuery = supabaseAdmin
       .from('workspaces')
       .select('id, storage_backend, google_folder_id, google_access_token, google_refresh_token, owner_id')
       .eq('id', id)
-      .single()
+
+    if (user_id) {
+      dbQuery = dbQuery.eq('owner_id', user_id)
+    }
+
+    const { data: workspace, error } = await dbQuery.single()
 
     if (error || !workspace) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { queryGroq } from '@/lib/groq'
 import { getConnectedNodes, getDomainColor, formatRelationship } from '@/lib/graphUtils'
 
-export default function NodePanel({ selectedNode, setSelectedNode, graphData }) {
+export default function NodePanel({ selectedNode, setSelectedNode, graphData, graphContext }) {
   const [edges, setEdges]         = useState([])
   const [nodes, setNodes]         = useState([])
   const [connected, setConnected] = useState([])
@@ -38,7 +38,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
     setAiResponse('')
     setTab('ai')
     try {
-      const ctx = {
+      const ctx = graphContext || {
         nodeCount: nodes.length,
         edgeCount: edges.length,
         sampleNodes: nodes.slice(0, 30).map(n => n.label),
@@ -202,7 +202,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData }) 
             {connected.map(({ node, edge, direction }, i) => {
               const nColor = getDomainColor(node.domain)
               return (
-                <div key={i}
+                <div key={`${node.id}-${edge.relationship}-${direction}-${i}`}
                   onClick={() => setSelectedNode(node)}
                   style={{
                     padding: '8px 16px', cursor: 'pointer',

@@ -241,8 +241,8 @@ Analyst Query: ${aiQuery}`
               {/* Entities involved */}
               {selected.entities_involved && selected.entities_involved.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {selected.entities_involved.map(entity => (
-                    <span key={entity} style={{
+                  {selected.entities_involved.map((entity, idx) => (
+                    <span key={`${entity}-${idx}`} style={{
                       fontSize: 7, color: '#3d7bd4',
                       padding: '1px 6px',
                       border: '1px solid rgba(61,123,212,0.3)',
@@ -520,8 +520,8 @@ Analyst Query: ${aiQuery}`
                     KEY ENTITIES
                   </div>
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {selected.entities_involved.map(entity => (
-                      <span key={entity} style={{
+                    {selected.entities_involved.map((entity, idx) => (
+                      <span key={`${entity}-${idx}`} style={{
                         fontSize: 9, color: '#3d7bd4',
                         padding: '3px 8px',
                         border: '1px solid rgba(61,123,212,0.3)',
