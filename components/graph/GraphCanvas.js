@@ -57,6 +57,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, 
   const [filter, setFilter] = useState(null)
   const [stats, setStats]   = useState({ nodes: 0, edges: 0 })
   const [hovered, setHovered] = useState(null)
+  const [nodesLoaded, setNodesLoaded] = useState(0)
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -119,6 +120,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, 
       s.visibleEdges = edges.slice(0, 200)
       s.revealIndex  = 200
       setStats({ nodes: nodes.length, edges: edges.length })
+      setNodesLoaded(nodes.length)
     })
   }, [graphData])
 
@@ -126,10 +128,10 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, 
 
   // Auto-select node from URL param once data is loaded
   useEffect(() => {
-    if (!initialEntityId || !stateRef.current.nodes.length) return
+    if (!initialEntityId || !nodesLoaded) return
     const node = stateRef.current.nodes.find(n => n.id === initialEntityId)
     if (node) setSelectedNode(node)
-  }, [initialEntityId, stateRef.current.nodes.length]) // eslint-disable-line
+  }, [initialEntityId, nodesLoaded])
 
   useEffect(() => {
     const canvas = canvasRef.current
