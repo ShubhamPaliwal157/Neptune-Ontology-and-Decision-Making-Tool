@@ -171,7 +171,7 @@ export default function LandingPage() {
   /* Lenis — smooth inertia scrolling for the whole page */
   useEffect(() => {
     const lenis = new Lenis({
-      lerp:        0.09,   // inertia strength: lower = more lag, higher = snappier
+      lerp:        0.06,   // inertia strength: lower = more lag, higher = snappier
       smoothWheel: true,
       syncTouch:   false,  // keep native feel on mobile touch
     })
