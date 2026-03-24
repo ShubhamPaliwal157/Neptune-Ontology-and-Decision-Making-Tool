@@ -60,15 +60,16 @@ node scraper/run.mjs --url https://example.com/feed.rss --no-trusted
 | geopolitics  | CFR Global Conflict Tracker |
 | geopolitics  | BBC World News          |
 | geopolitics  | Al Jazeera English      |
-| economics    | Reuters Economy         |
+| geopolitics  | Foreign Policy          |
+| economics    | The Economist — International |
 | economics    | Financial Times Markets |
-| economics    | IMF News                |
+| economics    | IMF Latest News         |
 | defense      | Defense One             |
 | defense      | Janes Defense News      |
 | technology   | MIT Technology Review   |
 | technology   | Wired                   |
 | climate      | Carbon Brief            |
-| climate      | Reuters Environment     |
+| climate      | The Guardian — Environment |
 | society      | UN News Centre          |
 | society      | Pew Research Center     |
 | organization | SIPRI                   |
