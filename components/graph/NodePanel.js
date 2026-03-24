@@ -5,13 +5,13 @@ import { getConnectedNodes, getDomainColor, formatRelationship } from '@/lib/gra
 
 // Glassmorphic sub-card styling for content blocks
 const glassCardStyle = {
-  background: 'rgba(255, 255, 255, 0.04)',
-  backdropFilter: 'blur(24px)',
-  WebkitBackdropFilter: 'blur(24px)',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'linear-gradient(135deg, rgba(11, 18, 40, 0.6) 0%, rgba(8, 13, 31, 0.7) 100%)',
+  border: '1px solid rgba(61, 123, 212, 0.15)',
   borderRadius: '14px',
   padding: '12px',
   marginBottom: '10px',
+  backgroundImage: 'linear-gradient(135deg, rgba(61, 123, 212, 0.06) 0%, transparent 60%)',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
 }
 
 const glassCardTitleStyle = {
@@ -250,23 +250,22 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
   return (
     <div style={{
       width: 300, height: '100vh', flexShrink: 0,
-      background: 'rgba(8, 13, 31, 0.25)',
-      backdropFilter: 'blur(18px)',
-      WebkitBackdropFilter: 'blur(18px)',
-      borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'linear-gradient(180deg, rgba(11, 18, 40, 0.85) 0%, rgba(8, 13, 31, 0.92) 100%)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      borderLeft: '1px solid rgba(61, 123, 212, 0.15)',
       display: 'flex', flexDirection: 'column',
       animation: 'fade-in-up 0.25s ease forwards',
       overflow: 'hidden',
-      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)'
+      backgroundImage: 'linear-gradient(135deg, rgba(61, 123, 212, 0.08) 0%, transparent 60%)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
     }}>
 
       {/* Header */}
       <div style={{
         padding: '14px 16px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        background: 'rgba(11, 18, 40, 0.4)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(61, 123, 212, 0.12)',
+        background: 'rgba(11, 18, 40, 0.6)',
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -312,8 +311,8 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
 
       {/* Tabs */}
       <div style={{
-        display: 'flex', borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        flexShrink: 0, background: 'rgba(8, 13, 31, 0.25)'
+        display: 'flex', borderBottom: '1px solid rgba(61, 123, 212, 0.12)',
+        flexShrink: 0, background: 'rgba(11, 18, 40, 0.4)'
       }}>
         {[
           ['overview', 'OVERVIEW'],
@@ -803,9 +802,9 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
       {/* Delete Entity Footer Button */}
       <div style={{
         padding: '12px 14px',
-        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+        borderTop: '1px solid rgba(61, 123, 212, 0.12)',
         flexShrink: 0,
-        background: 'rgba(0,0,0,0.2)'
+        background: 'rgba(11, 18, 40, 0.5)'
       }}>
         <button onClick={handleDeleteEntity} style={{
           width: '100%', padding: '8px',

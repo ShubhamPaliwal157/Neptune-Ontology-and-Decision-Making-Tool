@@ -67,22 +67,21 @@ export default function FeedPanel() {
   return (
     <div style={{
       width: 268, height: '100vh', flexShrink: 0,
-      background: 'rgba(8, 13, 31, 0.25)',
-      backdropFilter: 'blur(18px)',
-      WebkitBackdropFilter: 'blur(18px)',
-      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'linear-gradient(180deg, rgba(11, 18, 40, 0.85) 0%, rgba(8, 13, 31, 0.92) 100%)',
+      backdropFilter: 'blur(4px)',
+      WebkitBackdropFilter: 'blur(4px)',
+      borderRight: '1px solid rgba(61, 123, 212, 0.15)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
-      backgroundImage: 'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)'
+      backgroundImage: 'linear-gradient(135deg, rgba(61, 123, 212, 0.08) 0%, transparent 60%)',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.25)'
     }}>
 
       {/* Header */}
       <div style={{
         padding: '10px 14px',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        background: 'rgba(11, 18, 40, 0.4)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(61, 123, 212, 0.12)',
+        background: 'rgba(11, 18, 40, 0.6)',
         flexShrink: 0
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
