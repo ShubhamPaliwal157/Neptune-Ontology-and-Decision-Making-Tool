@@ -59,12 +59,8 @@ export async function POST(request) {
     }
 
     // Return job_id immediately so the client can start polling.
-    // We must also keep this function alive until the pipeline finishes —
-    // on Vercel, returning the response does NOT kill the function if we
-    // await work after the response is sent via a streaming trick.
-    // The simplest reliable approach: run pipeline first, then respond.
-    // maxDuration = 300 gives us 5 minutes total.
-    await processWorkspace({ workspace, sources, job, user_id }).catch((err) => {
+    // Fire pipeline in background — don't await so the response returns fast.
+    processWorkspace({ workspace, sources, job, user_id }).catch((err) => {
       return supabaseAdmin.from('processing_jobs').update({
         status: 'error',
         error_message: err?.message || 'Pipeline crashed unexpectedly',
