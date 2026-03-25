@@ -104,7 +104,8 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
   useEffect(() => {
     if (!selectedNode || !nodes.length) return
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
-  }, [selectedNode, edges, nodes])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode?.id, edges.length, nodes.length])
   useEffect(() => {
     // Wait for a real workspace name — not the generic fallback
     if (!selectedNode || !graphContext?.workspaceName || graphContext.workspaceName === 'Intelligence Workspace') return
