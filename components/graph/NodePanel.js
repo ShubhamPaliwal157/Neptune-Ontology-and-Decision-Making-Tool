@@ -97,7 +97,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     setAiResponse('')
     setTab('overview')
     setNodeDesc('')
-    setNodeDescLoading(true)
+    setNodeDescLoading(false)
   }, [selectedNode])
 
   // Update connected nodes when edges/nodes data loads or node changes
@@ -106,49 +106,67 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNode?.id, edges.length, nodes.length])
+
+  // Generate workspace-aware description — fires when BOTH node and graphContext.workspaceName are ready
   useEffect(() => {
-    // Wait for a real workspace name — not the generic fallback
-    if (!selectedNode || !graphContext?.workspaceName || graphContext.workspaceName === 'Intelligence Workspace') return
+    if (!selectedNode || !graphContext?.workspaceName) return
 
     const cacheKey = `${selectedNode.id}__${graphContext.workspaceName}`
+
+    // Already cached — show immediately
     if (descCacheRef.current[cacheKey]) {
       setNodeDesc(descCacheRef.current[cacheKey])
+      setNodeDescLoading(false)
       return
     }
 
+    // Start loading
     setNodeDescLoading(true)
     setNodeDesc('')
 
     const connectedNames = getConnectedNodes(selectedNode.id, edges, nodes)
-      .slice(0, 6)
-      .map(c => c.node.label)
-      .join(', ')
+      .slice(0, 5).map(c => c.node.label).join(', ')
 
     const domains = (graphContext.domains || []).join(', ') || 'general'
-    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" specifically in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role and significance within these domains — do NOT give a generic description. ${connectedNames ? `It is connected to: ${connectedNames}.` : ''} Be concise and intelligence-focused.`
+    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role within these domains. ${connectedNames ? `Connected to: ${connectedNames}.` : ''}`
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 12000) // 12s client timeout
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
 
     fetch('/api/ai/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         prompt,
-        graphContext,
-        systemOverride: `You are a strategic intelligence analyst. Describe an entity strictly in the context of the given workspace topic and domains. Never give a generic geographic or encyclopedic description. Always tie the description to the workspace subject matter. 2-3 sentences max.`,
+        graphContext: { workspaceName: graphContext.workspaceName, domains: graphContext.domains },
+        systemOverride: `You are an intelligence analyst. Describe the entity strictly within the context of the workspace topic. Never give a generic or geographic description. Always relate it to the workspace subject. 2-3 sentences only.`,
       }),
       signal: controller.signal,
     })
       .then(r => r.json())
       .then(data => {
-        const desc = data.response || selectedNode.description || ''
-        descCacheRef.current[cacheKey] = desc
-        setNodeDesc(desc)
+        const desc = data.response?.trim() || ''
+        if (desc) {
+          descCacheRef.current[cacheKey] = desc
+          setNodeDesc(desc)
+        } else {
+          setNodeDesc(selectedNode.description || '')
+        }
       })
-      .catch(() => setNodeDesc(selectedNode.description || ''))
-      .finally(() => { clearTimeout(timeoutId); setNodeDescLoading(false) })
-  }, [selectedNode, graphContext])
+      .catch(() => {
+        setNodeDesc(selectedNode.description || '')
+      })
+      .finally(() => {
+        clearTimeout(timeoutId)
+        setNodeDescLoading(false)
+      })
+
+    // Cleanup: abort fetch if node changes before response arrives
+    return () => {
+      controller.abort()
+      clearTimeout(timeoutId)
+    }
+  }, [selectedNode?.id, graphContext?.workspaceName])
 
   const handleQuery = async () => {
     if (!query.trim()) return
