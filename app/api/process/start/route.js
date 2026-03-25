@@ -177,8 +177,8 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
       return
     }
 
-    // Split textBundle into chunks of ~10k chars to avoid Groq token limits
-    const CHUNK_SIZE = 10_000
+    // Split textBundle into chunks of ~6k chars to reduce tokens per Groq call
+    const CHUNK_SIZE = 6_000
     const chunks = []
     for (let i = 0; i < effectiveBundle.length; i += CHUNK_SIZE) {
       chunks.push(effectiveBundle.slice(i, i + CHUNK_SIZE))
@@ -556,29 +556,53 @@ function generateFallbackDecisions(nodes, workspace) {
 
 // ── Groq API helpers ──────────────────────────────────────────────────────────
 
-async function callGroq(prompt, maxTokens = 2000, temperature = 0.2) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      // Use GROQ_API_KEY (server-side only), fallback to public key for backwards compat
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  })
+async function callGroq(prompt, maxTokens = 2000, temperature = 0.2, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    })
 
-  if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || ''
+    }
+
     const errText = await res.text()
+
+    // Rate limit — parse retry-after and wait if reasonable
+    if (res.status === 429) {
+      let waitMs = 0
+      try {
+        const errJson = JSON.parse(errText)
+        const msg = errJson?.error?.message || ''
+        const match = msg.match(/try again in (\d+)m([\d.]+)s/)
+        if (match) {
+          const mins = parseInt(match[1])
+          const secs = parseFloat(match[2])
+          waitMs = (mins * 60 + secs) * 1000
+        }
+      } catch { /* ignore */ }
+
+      // Only wait if under 2 minutes — otherwise throw immediately
+      if (waitMs > 0 && waitMs <= 120_000 && attempt < retries) {
+        console.log(`[groq] Rate limited. Waiting ${Math.round(waitMs/1000)}s before retry...`)
+        await new Promise(r => setTimeout(r, waitMs + 1000))
+        continue
+      }
+    }
+
     throw new Error(`Groq API error ${res.status}: ${errText}`)
   }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
 }
 
 function parseGroqJSON(raw) {
