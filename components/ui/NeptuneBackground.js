@@ -20,7 +20,7 @@ export default function NeptuneBackground() {
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          opacity: 0.85,
+          opacity: 0.35,
         }}
       >
         <source src="/videos/neptune-bg.mp4" type="video/mp4" />

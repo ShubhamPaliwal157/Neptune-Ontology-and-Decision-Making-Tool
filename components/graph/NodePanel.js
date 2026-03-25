@@ -66,7 +66,7 @@ function EntityAvatar({ label, color }) {
   )
 }
 
-export default function NodePanel({ selectedNode, setSelectedNode, graphData, setGraphData }) {
+export default function NodePanel({ selectedNode, setSelectedNode, graphData, graphContext, setGraphData }) {
   const [edges, setEdges]           = useState([])
   const [nodes, setNodes]           = useState([])
   const [connected, setConnected]   = useState([])
@@ -127,7 +127,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, se
     setAiResponse('')
     setTab('ai')
     try {
-      const ctx = {
+      const ctx = graphContext || {
         nodeCount: nodes.length,
         edgeCount: edges.length,
         sampleNodes: nodes.slice(0, 30).map(n => n.label),

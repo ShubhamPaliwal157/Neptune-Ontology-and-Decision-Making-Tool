@@ -21,7 +21,7 @@ const ALERT_POOL = [
   { id: 6, sev: 'HIGH',     text: 'APT41 lateral movement detected in PSU networks', time: '03:44' },
 ]
 
-export default function FeedPanel() {
+export default function FeedPanel({ feedData }) {
   const [items, setItems]       = useState([])
   const [visible, setVisible]   = useState([])
   const [alerts, setAlerts]     = useState([])
@@ -30,11 +30,18 @@ export default function FeedPanel() {
   const tickRef = useRef(0)
 
   useEffect(() => {
-    fetch('/data/feed.json').then(r => r.json()).then(data => {
-      setItems(data)
-      setVisible(data.slice(0, 6))
-    })
-  }, [])
+    if (feedData && feedData.length > 0) {
+      // Real workspace data provided — use it directly
+      setItems(feedData)
+      setVisible(feedData.slice(0, 6))
+    } else {
+      // Fallback: public demo data
+      fetch('/data/feed.json').then(r => r.json()).then(data => {
+        setItems(data)
+        setVisible(data.slice(0, 6))
+      })
+    }
+  }, [feedData])
 
   // Reveal feed items progressively
   useEffect(() => {
@@ -48,9 +55,11 @@ export default function FeedPanel() {
     return () => clearInterval(interval)
   }, [items])
 
-  // Stagger alerts — registeredRef prevents StrictMode double-invoke firing duplicate timeouts
+  // Stagger alerts — only show in demo mode (no real feedData)
+  // registeredRef prevents StrictMode double-invoke firing duplicate timeouts
   const alertsRegistered = useRef(false)
   useEffect(() => {
+    if (feedData && feedData.length > 0) return // real data — skip demo alerts
     if (alertsRegistered.current) return
     alertsRegistered.current = true
     ALERT_POOL.forEach((alert, i) => {
@@ -58,7 +67,7 @@ export default function FeedPanel() {
         setAlerts(prev => prev.some(a => a.id === alert.id) ? prev : [alert, ...prev].slice(0, 4))
       }, i * 22000 + 3000)
     })
-  }, [])
+  }, [feedData])
 
   const sevColor = (sev) => ({
     CRITICAL: '#c94040', HIGH: '#c87c3a', MEDIUM: '#b89a30', LOW: '#2a9e58'

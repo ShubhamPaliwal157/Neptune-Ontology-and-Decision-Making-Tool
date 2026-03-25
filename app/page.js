@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import Lenis from 'lenis'
 
 /* ─────────────────────────────────────── data ─────────────────── */
 const FEATURES = [
@@ -151,6 +152,7 @@ export default function LandingPage() {
   const orbPosRef = useRef({ x:600, y:400 })
   const rafRef    = useRef(null)
   const statsRef  = useRef(null)
+  const lenisRef  = useRef(null)
 
   /* 1 — override globals.css overflow:hidden */
   useEffect(() => {
@@ -163,6 +165,23 @@ export default function LandingPage() {
       h.style.removeProperty('overflow'); h.style.removeProperty('height')
       b.style.removeProperty('overflow'); b.style.removeProperty('height')
     }
+  }, [])
+
+
+  /* Lenis — smooth inertia scrolling for the whole page */
+  useEffect(() => {
+    const lenis = new Lenis({
+      lerp:        0.06,   // inertia strength: lower = more lag, higher = snappier
+      smoothWheel: true,
+      syncTouch:   false,  // keep native feel on mobile touch
+    })
+    lenisRef.current = lenis
+
+    let rafId
+    const raf = (time) => { lenis.raf(time); rafId = requestAnimationFrame(raf) }
+    rafId = requestAnimationFrame(raf)
+
+    return () => { cancelAnimationFrame(rafId); lenis.destroy(); lenisRef.current = null }
   }, [])
 
   /* 2 — cursor orb */
@@ -221,14 +240,19 @@ export default function LandingPage() {
     return () => obs.disconnect()
   }, [])
 
-  const scrollTo = id => document.getElementById(id)?.scrollIntoView({ behavior:'smooth' })
+  const scrollTo = (id) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (lenisRef.current) lenisRef.current.scrollTo(el, { offset: -64, duration: 1.4, easing: t => 1 - Math.pow(1-t, 3) })
+    else el.scrollIntoView({ behavior: 'smooth' })
+  }
 
   return (
     <div style={{ width:'100%', minHeight:'100vh', background:'#060810', fontFamily:'"DM Sans",sans-serif', color:'#f0f4ff', position:'relative' }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
-        html, body { overflow: auto !important; height: auto !important; scroll-behavior: smooth; }
+        html, body { overflow: auto !important; height: auto !important; }
         *, *::before, *::after { box-sizing: border-box; }
         ::selection { background: rgba(61,123,212,0.38); color: #f0f4ff; }
 
@@ -398,7 +422,7 @@ export default function LandingPage() {
       {/* ══ NAV ══════════════════════════════════════════════════════════ */}
       <nav style={{ position:'fixed',top:0,left:0,right:0,zIndex:300,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 48px',height:64,background:navSolid?'rgba(6,8,18,0.52)':'transparent',backdropFilter:navSolid?'blur(24px) saturate(160%)':'none',WebkitBackdropFilter:navSolid?'blur(24px) saturate(160%)':'none',borderBottom:navSolid?'1px solid rgba(255,255,255,0.07)':'1px solid transparent',transition:'all 0.4s ease' }}>
         <div style={{ display:'flex',alignItems:'center',gap:14 }}>
-          <span style={{ fontFamily:'"Sora",sans-serif',fontSize:15,fontWeight:800,color:'#f0f4ff',letterSpacing:'0.28em',textTransform:'uppercase' }}>NEPTUNE</span>
+          <span style={{ fontFamily:'"DM Sans",sans-serif',fontSize:15,fontWeight:300,color:'rgba(240,244,255,0.9)',letterSpacing:'0.36em',textTransform:'uppercase' }}>NEPTUNE</span>
           <span style={{ fontSize:8,letterSpacing:2,color:'rgba(240,244,255,0.28)',padding:'2px 7px',border:'1px solid rgba(255,255,255,0.08)',borderRadius:3 }}>BETA</span>
         </div>
         <div className="nav-links" style={{ display:'flex',alignItems:'center',gap:32 }}>
@@ -566,7 +590,7 @@ export default function LandingPage() {
           <div className="footer-grid" style={{ display:'grid',gridTemplateColumns:'2fr 1fr 1fr',gap:48,marginBottom:52 }}>
             <div className="footer-brand">
               <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:18 }}>
-                <span style={{ fontFamily:'"Sora",sans-serif',fontSize:14,fontWeight:800,color:'rgba(240,244,255,0.55)',letterSpacing:'0.28em',textTransform:'uppercase' }}>NEPTUNE</span>
+                <span style={{ fontFamily:'"DM Sans",sans-serif',fontSize:14,fontWeight:300,color:'rgba(240,244,255,0.42)',letterSpacing:'0.36em',textTransform:'uppercase' }}>NEPTUNE</span>
               </div>
               <p style={{ fontSize:14,color:'rgba(240,244,255,0.32)',lineHeight:1.78,marginBottom:28,maxWidth:300 }}>A geopolitical intelligence platform that turns raw sources into live knowledge graphs for analysts and decision-makers.</p>
               <div style={{ display:'flex',gap:7,flexWrap:'wrap' }}>
@@ -584,7 +608,7 @@ export default function LandingPage() {
           </div>
           <div style={{ height:1,background:'rgba(255,255,255,0.048)',marginBottom:28 }}/>
           <div style={{ display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:14 }}>
-            <div style={{ fontSize:12,color:'rgba(240,244,255,0.22)' }}>© 2026 Neptune Intelligence Ltd. All rights reserved.</div>
+            <div style={{ fontSize:12,color:'rgba(240,244,255,0.22)' }}>© 2026 Neptune. All rights reserved.</div>
             <div style={{ display:'flex',gap:24 }}>
               {[{l:'Privacy',h:'/privacy'},{l:'Terms',h:'/terms'},{l:'Cookies',h:'/privacy'}].map(({l,h}) => (
                 <Link key={l} href={h} className="footer-link">{l}</Link>

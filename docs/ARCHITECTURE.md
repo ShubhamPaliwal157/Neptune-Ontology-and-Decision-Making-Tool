@@ -8,10 +8,10 @@ Neptune is a geopolitical intelligence platform. Users create **workspaces** sco
 
 | Layer | Technology | Purpose |
 | ----- | ---------- | ------- |
-| Framework | Next.js 16 (App Router, Turbopack) | Full-stack React, API routes, SSR |
+| Framework | Next.js 14 (App Router) | Full-stack React, API routes, SSR |
 | Database & Auth | Supabase (Postgres + Auth) | User accounts, workspace/job/source storage |
-| File Storage | Google Drive API or Supabase Storage | Stores generated `graph.json` / `context.json` |
-| AI | Groq API (`llama-3.3-70b-versatile`) | Entity extraction and in-app intelligence queries |
+| File Storage | Google Drive API or Supabase Storage | Stores generated `graph.json`, `context.json`, `feed.json`, `decisions.json` |
+| AI | Groq API (`llama-3.3-70b-versatile`) | Entity extraction, feed generation, decision briefs, and in-app intelligence queries |
 | Rendering | Canvas 2D (custom) | Force-directed 3D-perspective graph visualisation |
 | Fonts | IBM Plex Mono + Bebas Neue | Body and display typography |
 | Deployment | Vercel | Hosting |
@@ -27,7 +27,6 @@ Neptune is a geopolitical intelligence platform. Users create **workspaces** sco
 │   ├── layout.js               # Root layout (fonts, AuthProvider wrapper)
 │   ├── globals.css             # Design token CSS variables + animations
 │   ├── page.js                 # Public landing/marketing page (/)
-│   ├── preview/page.js         # Public demo workspace (/preview) — no login required
 │   ├── login/page.js           # Auth: sign in
 │   ├── signup/page.js          # Auth: create account
 │   ├── forgot-password/page.js # Auth: request reset email
@@ -49,16 +48,19 @@ Neptune is a geopolitical intelligence platform. Users create **workspaces** sco
 │       │   ├── start/route.js      # Triggers the ingestion pipeline (fire-and-forget)
 │       │   ├── status/route.js     # Returns job progress (polled every 3s)
 │       │   └── sources/route.js    # Persists workspace sources to DB
+│       ├── ai/
+│       │   └── query/route.js      # AI query endpoint for NodePanel and DecisionWorkspace
 │       └── workspace/[id]/
 │           ├── route.js            # DELETE workspace (+ storage cleanup)
-│           └── graph/route.js      # GET graph.json from Drive or Supabase Storage
+│           ├── graph/route.js      # GET graph.json from Drive or Supabase Storage
+│           └── context/route.js    # GET context.json + feed.json + decisions.json
 │
 ├── components/
 │   ├── graph/
 │   │   ├── GraphCanvas.js      # Canvas 2D force-directed 3D graph renderer
 │   │   └── NodePanel.js        # Entity inspector + AI query panel (right sidebar)
 │   ├── ui/
-│   │   ├── AlertBadge.js       # Severity badge component (stub — not yet implemented)
+│   │   ├── AlertBadge.js       # Severity badge component (CRITICAL/HIGH/MEDIUM/LOW)
 │   │   ├── FeedPanel.js        # Live intelligence feed (left sidebar)
 │   │   ├── NeptuneBackground.js# Looping video background
 │   │   └── Sidebar.js          # 56px icon nav sidebar
@@ -105,17 +107,22 @@ User fills 5-step wizard (dashboard/new/page.js)
   │                3. mergeEntities()      — deduplicates across sources (alias + fuzzy)
   │                4. buildGraph()         — assembles graph.json
   │                5. buildContext()       — assembles context.json
-  │                6. saveOutputs()        — writes to Drive or Supabase Storage
-  │                7. Updates workspace node_count / edge_count
-  │                8. Sets job status → 'done'
+  │                6. generateFeed()       — Groq generates intelligence feed items
+  │                7. generateDecisions()  — Groq generates decision briefs
+  │                8. saveOutputs()        — writes all files to Drive or Supabase Storage
+  │                9. Updates workspace node_count / edge_count
+  │                10. Sets job status → 'done'
   │
 Frontend polls GET /api/process/status?job_id=... every 3s
   └── When done → workspace card shows READY → user opens /workspace/[id]
 
 /workspace/[id]/page.js
-  └── GET /api/workspace/[id]/graph
-        ├── If Drive: refreshes token → searches folder for graph.json → downloads it
-        └── If Supabase Storage: downloads workspace-outputs/{id}/graph.json
+  ├── GET /api/workspace/[id]/graph
+  │     ├── If Drive: refreshes token → searches folder for graph.json → downloads it
+  │     └── If Supabase Storage: downloads workspace-outputs/{id}/graph.json
+  └── GET /api/workspace/[id]/context
+        ├── Loads context.json, feed.json, decisions.json from storage
+        └── Returns workspace metadata + feed + decisions for UI
 ```
 
 ### In-Workspace AI Query
@@ -123,10 +130,16 @@ Frontend polls GET /api/process/status?job_id=... every 3s
 ```md
 User clicks node → NodePanel opens
 User types query → handleQuery()
-  └── queryGroq(prompt, { nodeCount, edgeCount, sampleNodes })
-        └── POST https://api.groq.com/openai/v1/chat/completions
-              model: llama-3.3-70b-versatile
-              max_tokens: 400, temperature: 0.4
+  └── POST /api/ai/query
+        └── queryGroq(prompt, { nodeCount, edgeCount, sampleNodes, workspaceName, domains })
+              └── POST https://api.groq.com/openai/v1/chat/completions
+                    model: llama-3.3-70b-versatile
+                    max_tokens: 400, temperature: 0.4
+
+User opens DecisionWorkspace → types query → handleAiQuery()
+  └── POST /api/ai/query
+        └── queryGroq(prompt with decision context, graphContext)
+              └── Returns strategic analysis of decision brief
 ```
 
 ---
@@ -194,7 +207,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=     # Public anon key (safe for browser)
 SUPABASE_SERVICE_ROLE_KEY=         # Service role key — server-only, bypasses RLS
 
 # Groq
-NEXT_PUBLIC_GROQ_API_KEY=          # ⚠ Currently client-side — move to server-only before production
+GROQ_API_KEY=                      # Server-side only — used by API routes
+NEXT_PUBLIC_GROQ_API_KEY=          # ⚠ Deprecated — kept for backwards compatibility only
 
 # Google OAuth
 GOOGLE_CLIENT_ID=
@@ -205,7 +219,7 @@ GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
 NEXT_PUBLIC_APP_URL=http://localhost:3000   # Used for internal server-to-server fetch calls
 ```
 
-> **Security note:** `NEXT_PUBLIC_GROQ_API_KEY` is exposed in browser bundles. Before production, move all Groq calls to API routes and rename to `GROQ_API_KEY` (no `NEXT_PUBLIC_` prefix).
+> **Security note:** The codebase now uses server-side `GROQ_API_KEY` with fallback to `NEXT_PUBLIC_GROQ_API_KEY` for backwards compatibility. All Groq calls go through API routes (`/api/ai/query` and `/api/process/start`). Remove `NEXT_PUBLIC_GROQ_API_KEY` from your environment once you've migrated to `GROQ_API_KEY`.
 
 ---
 
