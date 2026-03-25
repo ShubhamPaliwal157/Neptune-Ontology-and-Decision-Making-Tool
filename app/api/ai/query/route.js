@@ -30,7 +30,7 @@ export async function POST(request) {
         temperature: 0.3,
         max_tokens: maxTokens,
       }),
-      signal: AbortSignal.timeout(15000), // 15s hard timeout
+      signal: AbortSignal.timeout(25000), // 25s hard timeout
     })
 
     if (!groqRes.ok) {

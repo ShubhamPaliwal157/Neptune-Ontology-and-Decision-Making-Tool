@@ -131,7 +131,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     const prompt = `In 2-3 sentences, describe "${selectedNode.label}" in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role within these domains. ${connectedNames ? `Connected to: ${connectedNames}.` : ''}`
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 12000)
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
 
     fetch('/api/ai/query', {
       method: 'POST',
