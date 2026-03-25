@@ -103,7 +103,8 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
 
   // Generate workspace-aware description — fires when BOTH node and graphContext are ready
   useEffect(() => {
-    if (!selectedNode || !graphContext?.workspaceName) return
+    // Wait for a real workspace name — not the generic fallback
+    if (!selectedNode || !graphContext?.workspaceName || graphContext.workspaceName === 'Intelligence Workspace') return
 
     const cacheKey = `${selectedNode.id}__${graphContext.workspaceName}`
     if (descCacheRef.current[cacheKey]) {
@@ -139,6 +140,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
       })
       .catch(() => setNodeDesc(selectedNode.description || ''))
       .finally(() => setNodeDescLoading(false))
+  }, [selectedNode, graphContext])      .finally(() => setNodeDescLoading(false))
   }, [selectedNode, graphContext])
 
   const handleQuery = async () => {

@@ -65,12 +65,12 @@ function WorkspacePage({ params }) {
 
         setGraphData({ nodes, edges })
 
-        // Build graphContext for AI queries
+        // Build graphContext for AI queries — use null workspaceName until context route confirms it
         const ctx = {
           nodeCount:     nodes.length,
           edgeCount:     edges.length,
           sampleNodes:   nodes.slice(0, 30).map(n => n.label || n.name),
-          workspaceName: graphRaw.workspace_name || 'Intelligence Workspace',
+          workspaceName: null,
           domains:       graphRaw.domains || [],
         }
         setGraphContext(ctx)
