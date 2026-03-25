@@ -159,13 +159,32 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     }
 
     // ── Step 1b: Extract entities from scraped text bundle ────────────────────
+    const bundle = scrapeResult.textBundle
+    console.log(`[pipeline] textBundle length: ${bundle.length}, items: ${scrapeResult.items.length}`)
+
+    // If textBundle is empty but we have items, build a simple bundle from allTexts
+    const effectiveBundle = bundle.length > 0
+      ? bundle
+      : allTexts.map(t => t.text).join('\n\n---\n\n')
+
+    if (!effectiveBundle || effectiveBundle.trim().length < 100) {
+      console.warn('[pipeline] No text content to extract entities from — marking as error')
+      await updateJob({
+        status: 'error',
+        error_message: 'No content could be scraped from the provided sources. Please check your source URLs or keywords and try again.',
+        updated_at: new Date().toISOString(),
+      })
+      return
+    }
+
     // Split textBundle into chunks of ~10k chars to avoid Groq token limits
     const CHUNK_SIZE = 10_000
-    const bundle = scrapeResult.textBundle
     const chunks = []
-    for (let i = 0; i < bundle.length; i += CHUNK_SIZE) {
-      chunks.push(bundle.slice(i, i + CHUNK_SIZE))
+    for (let i = 0; i < effectiveBundle.length; i += CHUNK_SIZE) {
+      chunks.push(effectiveBundle.slice(i, i + CHUNK_SIZE))
     }
+
+    console.log(`[pipeline] Processing ${chunks.length} chunks for entity extraction`)
 
     for (let i = 0; i < chunks.length; i++) {
       await updateJob({
@@ -185,6 +204,17 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     // ── Step 2: Merge + deduplicate entities ──────────────────────────────────
     await updateJob({ progress: 55, current_step: 'Resolving entity aliases...' })
     const { nodes, edgeMap } = mergeEntities(allEntities, allEdges)
+
+    console.log(`[pipeline] Merged entities: ${nodes.length} nodes, ${edgeMap.size} edges`)
+
+    if (nodes.length === 0) {
+      await updateJob({
+        status: 'error',
+        error_message: 'No entities could be extracted. Your Groq API may have hit a rate limit, or the sources returned no usable content. Please try again in a few minutes.',
+        updated_at: new Date().toISOString(),
+      })
+      return
+    }
 
     // ── Step 3: Build final graph ─────────────────────────────────────────────
     await updateJob({ progress: 68, current_step: 'Building knowledge graph...' })
