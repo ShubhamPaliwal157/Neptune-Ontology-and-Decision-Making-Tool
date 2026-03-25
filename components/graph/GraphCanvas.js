@@ -38,7 +38,7 @@ function getNodeSize(node) {
   return Math.max(4, (node.size || 10) * 0.45)
 }
 
-export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, initialEntityId }) {
+export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, setGraphData, initialEntityId }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
     nodes: [], edges: [],

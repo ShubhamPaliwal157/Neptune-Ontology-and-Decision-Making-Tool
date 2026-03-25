@@ -1,10 +1,123 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { hasPermission, PERMISSIONS } from '@/lib/workspacePermissions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+/**
+ * GET /api/workspace/[id]
+ * Get workspace details with user's role
+ */
+export async function GET(request, { params }) {
+  try {
+    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const userId = searchParams.get('user_id')
+
+    if (!userId) {
+      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 })
+    }
+
+    // Check if user has access
+    const canView = await hasPermission(id, userId, PERMISSIONS.VIEW_WORKSPACE)
+    if (!canView) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // Get workspace with member info
+    const { data: workspace, error: workspaceError } = await supabaseAdmin
+      .from('workspaces')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (workspaceError || !workspace) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+    }
+
+    // Get user's role
+    const { data: member } = await supabaseAdmin
+      .from('workspace_members')
+      .select('role')
+      .eq('workspace_id', id)
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .single()
+
+    return NextResponse.json({ 
+      workspace, 
+      role: member?.role || null 
+    })
+  } catch (err) {
+    console.error('[get workspace]', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+/**
+ * PATCH /api/workspace/[id]
+ * Update workspace metadata (name, description, etc.)
+ */
+export async function PATCH(request, { params }) {
+  try {
+    const { id } = await params
+    const { user_id, updates } = await request.json()
+
+    if (!user_id || !updates) {
+      return NextResponse.json({ error: 'Missing user_id or updates' }, { status: 400 })
+    }
+
+    // Check if user can edit workspace metadata
+    const canEdit = await hasPermission(id, user_id, PERMISSIONS.EDIT_WORKSPACE_METADATA)
+    if (!canEdit) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
+    // Allowed fields to update
+    const allowedFields = ['name', 'description', 'domains', 'is_collaborative', 'visibility']
+    const filteredUpdates = {}
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        filteredUpdates[field] = updates[field]
+      }
+    }
+
+    if (Object.keys(filteredUpdates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    // Update workspace
+    const { data: workspace, error } = await supabaseAdmin
+      .from('workspaces')
+      .update(filteredUpdates)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Log activity
+    await supabaseAdmin.from('workspace_activity').insert({
+      workspace_id: id,
+      user_id,
+      action: 'workspace_updated',
+      entity_type: 'workspace',
+      entity_id: id,
+      entity_data: { updates: Object.keys(filteredUpdates) },
+    })
+
+    return NextResponse.json({ workspace, success: true })
+  } catch (err) {
+    console.error('[update workspace]', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
 
 export async function DELETE(request, { params }) {
   try {

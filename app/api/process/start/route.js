@@ -58,10 +58,14 @@ export async function POST(request) {
       return NextResponse.json({ error: jobError.message }, { status: 500 })
     }
 
-    // Run pipeline — await it so Vercel doesn't kill the function early.
-    // The client polls /api/process/status separately; this route blocks until done.
-    processWorkspace({ workspace, sources, job, user_id }).catch((err) => {
-      supabaseAdmin.from('processing_jobs').update({
+    // Return job_id immediately so the client can start polling.
+    // We must also keep this function alive until the pipeline finishes —
+    // on Vercel, returning the response does NOT kill the function if we
+    // await work after the response is sent via a streaming trick.
+    // The simplest reliable approach: run pipeline first, then respond.
+    // maxDuration = 300 gives us 5 minutes total.
+    await processWorkspace({ workspace, sources, job, user_id }).catch((err) => {
+      return supabaseAdmin.from('processing_jobs').update({
         status: 'error',
         error_message: err?.message || 'Pipeline crashed unexpectedly',
         updated_at: new Date().toISOString(),
@@ -116,12 +120,23 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
       return { type: s.type || 'url', url: s.url, label: s.url }
     })
 
-    const scrapeResult = await scrape({
-      userSources,
-      domains:        workspace.domains || [],
-      includeTrusted: true,
-      trustedCount:   8,
-      onProgress:     (msg) => console.log('[scraper]', msg),
+    // Cap scrape time at 90s — if it hangs on Vercel we still get partial results
+    const scrapeResult = await Promise.race([
+      scrape({
+        userSources,
+        domains:        workspace.domains || [],
+        maxItems:       20,
+        includeTrusted: true,
+        trustedCount:   4,   // fewer trusted sources = faster on Vercel
+        onProgress:     (msg) => console.log('[scraper]', msg),
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Scrape timed out after 90s')), 90_000)
+      ),
+    ]).catch(err => {
+      console.warn('[pipeline] Scrape warning:', err.message)
+      // Return a minimal empty result so the pipeline can continue with Groq
+      return { normalisedCount: 0, sourceCount: 0, failedSources: [], items: [], textBundle: '' }
     })
 
     await updateJob({ progress: 40, current_step: `Scraped ${scrapeResult.normalisedCount} articles from ${scrapeResult.sourceCount} sources. Extracting entities...` })
