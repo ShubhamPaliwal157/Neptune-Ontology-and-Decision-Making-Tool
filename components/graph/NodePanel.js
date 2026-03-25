@@ -74,6 +74,11 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
   const [newRelationship, setNewRelationship] = useState('')
   const inputRef = useRef(null)
 
+  // Workspace-aware description — generated once per node, cached by node id
+  const [nodeDesc, setNodeDesc]         = useState('')
+  const [nodeDescLoading, setNodeDescLoading] = useState(false)
+  const descCacheRef = useRef({})
+
   useEffect(() => {
     if (graphData) {
       setNodes(graphData.nodes || [])
@@ -91,6 +96,47 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
     setAiResponse('')
     setTab('overview')
+
+    // Generate workspace-aware description for this node
+    const cacheKey = `${selectedNode.id}__${graphContext?.workspaceName || ''}`
+    if (descCacheRef.current[cacheKey]) {
+      setNodeDesc(descCacheRef.current[cacheKey])
+      return
+    }
+
+    // Only generate if we have workspace context
+    if (!graphContext?.workspaceName) {
+      setNodeDesc(selectedNode.description || '')
+      return
+    }
+
+    setNodeDescLoading(true)
+    setNodeDesc('')
+
+    const connectedNames = getConnectedNodes(selectedNode.id, edges, nodes)
+      .slice(0, 6)
+      .map(c => c.node.label)
+      .join(', ')
+
+    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" specifically in the context of the "${graphContext.workspaceName}" workspace (domains: ${(graphContext.domains || []).join(', ')}). Focus only on its role and significance within these domains. ${connectedNames ? `It is connected to: ${connectedNames}.` : ''} Be concise and intelligence-focused.`
+
+    fetch('/api/ai/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        graphContext,
+        systemOverride: `You are a strategic intelligence analyst. Provide a short, precise description of an entity as it relates to a specific intelligence workspace. Be factual, domain-specific, and concise. No fluff. 2-3 sentences max.`,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        const desc = data.response || selectedNode.description || ''
+        descCacheRef.current[cacheKey] = desc
+        setNodeDesc(desc)
+      })
+      .catch(() => setNodeDesc(selectedNode.description || ''))
+      .finally(() => setNodeDescLoading(false))
   }, [selectedNode, edges, nodes])
 
   const handleQuery = async () => {
@@ -336,9 +382,21 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Description */}
             <div style={glassCardStyle}>
-              <div style={glassCardTitleStyle}>Description</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={glassCardTitleStyle}>Description</div>
+                {nodeDescLoading && (
+                  <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                    {[0,1,2].map(i => (
+                      <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: color, animation: `pulse-dot 0.8s ${i*0.15}s infinite` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
               <p style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                {selectedNode.description || `${selectedNode.label} is a ${selectedNode.type} entity in the ${selectedNode.domain} domain of this knowledge graph.`}
+                {nodeDescLoading
+                  ? <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Generating workspace-aware description...</span>
+                  : nodeDesc || `${selectedNode.label} is a ${selectedNode.type} entity in the ${selectedNode.domain} domain.`
+                }
               </p>
             </div>
 
