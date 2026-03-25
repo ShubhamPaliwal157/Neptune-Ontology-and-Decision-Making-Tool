@@ -140,7 +140,6 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
       })
       .catch(() => setNodeDesc(selectedNode.description || ''))
       .finally(() => setNodeDescLoading(false))
-  }, [selectedNode, graphContext])      .finally(() => setNodeDescLoading(false))
   }, [selectedNode, graphContext])
 
   const handleQuery = async () => {
