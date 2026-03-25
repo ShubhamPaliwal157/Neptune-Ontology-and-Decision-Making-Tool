@@ -159,6 +159,7 @@ function WorkspacePage({ params }) {
                 selectedNode={selectedNode}
                 setSelectedNode={setSelectedNode}
                 graphData={graphData}
+                setGraphData={setGraphData}
               />
               <NodePanel
                 selectedNode={selectedNode}

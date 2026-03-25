@@ -38,7 +38,7 @@ function getNodeSize(node) {
   return Math.max(4, (node.size || 10) * 0.45)
 }
 
-export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }) {
+export default function GraphCanvas({ selectedNode, setSelectedNode, graphData, setGraphData }) {
   const canvasRef = useRef(null)
   const stateRef  = useRef({
     nodes: [], edges: [],
@@ -74,22 +74,47 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
       
       if (deduplicated.mergeCount > 0) {
         console.log(`GraphCanvas: Merged ${deduplicated.mergeCount} duplicate entities`)
+        // Update parent state with deduplicated data
+        if (setGraphData) {
+          setGraphData({ nodes: deduplicated.nodes, edges: deduplicated.edges })
+        }
       }
       
       const nodes = deduplicated.nodes
       const edges = deduplicated.edges
       const s = stateRef.current
 
+      // Preserve existing positions for nodes that already exist
+      const existingPositions = new Map()
+      if (s.nodes) {
+        s.nodes.forEach(n => {
+          existingPositions.set(n.id, { fx: n.fx, fy: n.fy, fz: n.fz })
+        })
+      }
+
       nodes.forEach(n => {
+        const existing = existingPositions.get(n.id)
+        if (existing) {
+          // Keep existing position
+          n.fx = existing.fx
+          n.fy = existing.fy
+          n.fz = existing.fz
+        } else {
+          // New node - initialize position near center with slight randomness
+          n.fx = (Math.random() - 0.5) * 100
+          n.fy = (Math.random() - 0.5) * 100
+          n.fz = (Math.random() - 0.5) * 50
+        }
         n.vx = 0; n.vy = 0; n.vz = 0
-        n.fx = n.x || (Math.random() - 0.5) * 600
-        n.fy = n.y || (Math.random() - 0.5) * 600
-        n.fz = n.z || (Math.random() - 0.5) * 200
       })
 
       const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]))
 
-      for (let tick = 0; tick < 120; tick++) {
+      // Only run full layout if this is initial load or significant change
+      const isInitialLoad = !s.nodes || s.nodes.length === 0
+      const layoutTicks = isInitialLoad ? 120 : 30
+
+      for (let tick = 0; tick < layoutTicks; tick++) {
         for (let i = 0; i < nodes.length; i++) {
           for (let j = i + 1; j < nodes.length; j++) {
             const a = nodes[i], b = nodes[j]
@@ -130,7 +155,7 @@ export default function GraphCanvas({ selectedNode, setSelectedNode, graphData }
       s.revealIndex  = 200
       setStats({ nodes: nodes.length, edges: edges.length })
     })
-  }, [graphData])
+  }, [graphData, setGraphData])
 
   useEffect(() => { stateRef.current.filter = filter }, [filter])
 
