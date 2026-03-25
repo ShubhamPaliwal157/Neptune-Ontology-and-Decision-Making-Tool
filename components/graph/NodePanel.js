@@ -91,22 +91,23 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     ]).then(([n, e]) => { setNodes(n); setEdges(e) })
   }, [graphData])
 
+  // Reset on node change
   useEffect(() => {
     if (!selectedNode) return
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
     setAiResponse('')
     setTab('overview')
+    setNodeDesc('')
+    setNodeDescLoading(false)
+  }, [selectedNode, edges, nodes])
 
-    // Generate workspace-aware description for this node
-    const cacheKey = `${selectedNode.id}__${graphContext?.workspaceName || ''}`
+  // Generate workspace-aware description — fires when BOTH node and graphContext are ready
+  useEffect(() => {
+    if (!selectedNode || !graphContext?.workspaceName) return
+
+    const cacheKey = `${selectedNode.id}__${graphContext.workspaceName}`
     if (descCacheRef.current[cacheKey]) {
       setNodeDesc(descCacheRef.current[cacheKey])
-      return
-    }
-
-    // Only generate if we have workspace context
-    if (!graphContext?.workspaceName) {
-      setNodeDesc(selectedNode.description || '')
       return
     }
 
@@ -118,7 +119,8 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
       .map(c => c.node.label)
       .join(', ')
 
-    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" specifically in the context of the "${graphContext.workspaceName}" workspace (domains: ${(graphContext.domains || []).join(', ')}). Focus only on its role and significance within these domains. ${connectedNames ? `It is connected to: ${connectedNames}.` : ''} Be concise and intelligence-focused.`
+    const domains = (graphContext.domains || []).join(', ') || 'general'
+    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" specifically in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role and significance within these domains — do NOT give a generic description. ${connectedNames ? `It is connected to: ${connectedNames}.` : ''} Be concise and intelligence-focused.`
 
     fetch('/api/ai/query', {
       method: 'POST',
@@ -126,7 +128,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
       body: JSON.stringify({
         prompt,
         graphContext,
-        systemOverride: `You are a strategic intelligence analyst. Provide a short, precise description of an entity as it relates to a specific intelligence workspace. Be factual, domain-specific, and concise. No fluff. 2-3 sentences max.`,
+        systemOverride: `You are a strategic intelligence analyst. Describe an entity strictly in the context of the given workspace topic and domains. Never give a generic geographic or encyclopedic description. Always tie the description to the workspace subject matter. 2-3 sentences max.`,
       }),
     })
       .then(r => r.json())
@@ -137,7 +139,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
       })
       .catch(() => setNodeDesc(selectedNode.description || ''))
       .finally(() => setNodeDescLoading(false))
-  }, [selectedNode, edges, nodes])
+  }, [selectedNode, graphContext])
 
   const handleQuery = async () => {
     if (!query.trim()) return
