@@ -127,6 +127,9 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     const domains = (graphContext.domains || []).join(', ') || 'general'
     const prompt = `In 2-3 sentences, describe "${selectedNode.label}" specifically in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role and significance within these domains — do NOT give a generic description. ${connectedNames ? `It is connected to: ${connectedNames}.` : ''} Be concise and intelligence-focused.`
 
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 12000) // 12s client timeout
+
     fetch('/api/ai/query', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -135,6 +138,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
         graphContext,
         systemOverride: `You are a strategic intelligence analyst. Describe an entity strictly in the context of the given workspace topic and domains. Never give a generic geographic or encyclopedic description. Always tie the description to the workspace subject matter. 2-3 sentences max.`,
       }),
+      signal: controller.signal,
     })
       .then(r => r.json())
       .then(data => {
@@ -143,7 +147,7 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
         setNodeDesc(desc)
       })
       .catch(() => setNodeDesc(selectedNode.description || ''))
-      .finally(() => setNodeDescLoading(false))
+      .finally(() => { clearTimeout(timeoutId); setNodeDescLoading(false) })
   }, [selectedNode, graphContext])
 
   const handleQuery = async () => {

@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server'
 
-/**
- * POST /api/ai/query
- * Server-side proxy for all Groq AI calls.
- * Keeps GROQ_API_KEY off the client entirely.
- *
- * Body: { prompt, graphContext, systemOverride? }
- * graphContext: { nodeCount, edgeCount, sampleNodes, workspaceName?, domains? }
- */
 export async function POST(request) {
   try {
     const { prompt, graphContext, systemOverride } = await request.json()
@@ -18,6 +10,10 @@ export async function POST(request) {
 
     const ctx = graphContext || {}
     const systemPrompt = systemOverride || buildSystemPrompt(ctx)
+
+    // Detect if this is a short description request — use fewer tokens
+    const isDescRequest = systemOverride && systemOverride.includes('2-3 sentences')
+    const maxTokens = isDescRequest ? 120 : 600
 
     const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -31,9 +27,10 @@ export async function POST(request) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.4,
-        max_tokens: 600,
+        temperature: 0.3,
+        max_tokens: maxTokens,
       }),
+      signal: AbortSignal.timeout(15000), // 15s hard timeout
     })
 
     if (!groqRes.ok) {
@@ -55,7 +52,7 @@ export async function POST(request) {
 function buildSystemPrompt(ctx) {
   const nodeCount = ctx.nodeCount || 0
   const edgeCount = ctx.edgeCount || 0
-  const sampleNodes = (ctx.sampleNodes || []).slice(0, 20).join(', ')
+  const sampleNodes = (ctx.sampleNodes || []).slice(0, 10).join(', ')
   const workspaceName = ctx.workspaceName || 'Active Intelligence Workspace'
   const domains = (ctx.domains || ['geopolitics', 'economics', 'defense']).join(', ')
 
