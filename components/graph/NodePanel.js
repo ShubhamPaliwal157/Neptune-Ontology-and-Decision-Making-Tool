@@ -94,19 +94,17 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
   // Reset on node change
   useEffect(() => {
     if (!selectedNode) return
-    setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
     setAiResponse('')
     setTab('overview')
     setNodeDesc('')
-    // Start loading immediately — we know a description will be generated
     setNodeDescLoading(true)
   }, [selectedNode])
 
-  // Update connected nodes when edges/nodes data loads
+  // Update connected nodes when edges/nodes data loads or node changes
   useEffect(() => {
     if (!selectedNode || !nodes.length) return
     setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
-  }, [edges, nodes])
+  }, [selectedNode, edges, nodes])
   useEffect(() => {
     // Wait for a real workspace name — not the generic fallback
     if (!selectedNode || !graphContext?.workspaceName || graphContext.workspaceName === 'Intelligence Workspace') return
