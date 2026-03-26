@@ -24,7 +24,39 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 })
     }
 
-    console.log('[activity] Checking access:', { workspaceId: id, userId, userIdType: typeof userId })
+    console.log('[activity] Request received:', { 
+      workspaceId: id, 
+      userId, 
+      userIdType: typeof userId,
+      userIdLength: userId?.length 
+    })
+
+    // First, let's check the workspace and membership directly
+    const { data: workspace } = await supabaseAdmin
+      .from('workspaces')
+      .select('owner_id')
+      .eq('id', id)
+      .single()
+    
+    const { data: member } = await supabaseAdmin
+      .from('workspace_members')
+      .select('role, status')
+      .eq('workspace_id', id)
+      .eq('user_id', userId)
+      .single()
+    
+    console.log('[activity] Pre-check:', {
+      workspaceOwnerId: workspace?.owner_id,
+      ownerIdType: typeof workspace?.owner_id,
+      ownerIdLength: workspace?.owner_id?.length,
+      userId,
+      userIdType: typeof userId,
+      userIdLength: userId?.length,
+      isOwnerStrict: workspace?.owner_id === userId,
+      isOwnerNormalized: String(workspace?.owner_id) === String(userId),
+      memberRole: member?.role,
+      memberStatus: member?.status,
+    })
 
     // Check if user has access to view workspace
     const canView = await hasPermission(id, userId, PERMISSIONS.VIEW_WORKSPACE)
