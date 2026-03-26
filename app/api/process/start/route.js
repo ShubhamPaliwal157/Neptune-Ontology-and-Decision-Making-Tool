@@ -191,6 +191,8 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
         progress: Math.round(40 + (i / chunks.length) * 15),
         current_step: `Extracting entities from chunk ${i + 1}/${chunks.length}...`,
       })
+      // Small delay between chunks to avoid Groq TPM rate limit
+      if (i > 0) await new Promise(r => setTimeout(r, 3000))
       try {
         const fakeSource = { type: 'bundle', url: `chunk-${i + 1}`, keyword: null }
         const { entities, edges } = await extractWithGroq(chunks[i], fakeSource, workspace.domains)
@@ -226,10 +228,12 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
 
     // ── Step 5: Generate intelligence feed ───────────────────────────────────
     await updateJob({ progress: 80, current_step: 'Generating intelligence feed...' })
+    await new Promise(r => setTimeout(r, 4000)) // wait for TPM to recover
     const feed = await generateFeed(nodes, allTexts, workspace)
 
     // ── Step 6: Generate decision briefs ─────────────────────────────────────
     await updateJob({ progress: 88, current_step: 'Generating decision briefs...' })
+    await new Promise(r => setTimeout(r, 4000)) // wait for TPM to recover
     const decisions = await generateDecisions(nodes, allTexts, workspace, feed)
 
     // ── Step 7: Save all outputs ──────────────────────────────────────────────
