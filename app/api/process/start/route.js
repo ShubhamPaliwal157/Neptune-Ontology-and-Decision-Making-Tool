@@ -163,19 +163,40 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     }
 
     // ── Step 1b: Extract entities from scraped text bundle ────────────────────
-    // Split textBundle into chunks of ~10k chars to avoid Groq token limits
-    const CHUNK_SIZE = 10_000
     const bundle = scrapeResult.textBundle
-    const chunks = []
-    for (let i = 0; i < bundle.length; i += CHUNK_SIZE) {
-      chunks.push(bundle.slice(i, i + CHUNK_SIZE))
+    console.log(`[pipeline] textBundle length: ${bundle.length}, items: ${scrapeResult.items.length}`)
+
+    // If textBundle is empty but we have items, build a simple bundle from allTexts
+    const effectiveBundle = bundle.length > 0
+      ? bundle
+      : allTexts.map(t => t.text).join('\n\n---\n\n')
+
+    if (!effectiveBundle || effectiveBundle.trim().length < 100) {
+      console.warn('[pipeline] No text content to extract entities from — marking as error')
+      await updateJob({
+        status: 'error',
+        error_message: 'No content could be scraped from the provided sources. Please check your source URLs or keywords and try again.',
+        updated_at: new Date().toISOString(),
+      })
+      return
     }
+
+    // Split textBundle into chunks of ~6k chars to reduce tokens per Groq call
+    const CHUNK_SIZE = 6_000
+    const chunks = []
+    for (let i = 0; i < effectiveBundle.length; i += CHUNK_SIZE) {
+      chunks.push(effectiveBundle.slice(i, i + CHUNK_SIZE))
+    }
+
+    console.log(`[pipeline] Processing ${chunks.length} chunks for entity extraction`)
 
     for (let i = 0; i < chunks.length; i++) {
       await updateJob({
         progress: Math.round(40 + (i / chunks.length) * 15),
         current_step: `Extracting entities from chunk ${i + 1}/${chunks.length}...`,
       })
+      // Small delay between chunks to avoid Groq TPM rate limit
+      if (i > 0) await new Promise(r => setTimeout(r, 3000))
       try {
         const fakeSource = { type: 'bundle', url: `chunk-${i + 1}`, keyword: null }
         const { entities, edges } = await extractWithGroq(chunks[i], fakeSource, workspace.domains)
@@ -190,6 +211,17 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
     await updateJob({ progress: 55, current_step: 'Resolving entity aliases...' })
     const { nodes, edgeMap } = mergeEntities(allEntities, allEdges)
 
+    console.log(`[pipeline] Merged entities: ${nodes.length} nodes, ${edgeMap.size} edges`)
+
+    if (nodes.length === 0) {
+      await updateJob({
+        status: 'error',
+        error_message: 'No entities could be extracted. Your Groq API may have hit a rate limit, or the sources returned no usable content. Please try again in a few minutes.',
+        updated_at: new Date().toISOString(),
+      })
+      return
+    }
+
     // ── Step 3: Build final graph ─────────────────────────────────────────────
     await updateJob({ progress: 68, current_step: 'Building knowledge graph...' })
     const graph = buildGraph(nodes, edgeMap)
@@ -200,10 +232,12 @@ async function processWorkspace({ workspace, sources, job, user_id }) {
 
     // ── Step 5: Generate intelligence feed ───────────────────────────────────
     await updateJob({ progress: 80, current_step: 'Generating intelligence feed...' })
+    await new Promise(r => setTimeout(r, 4000)) // wait for TPM to recover
     const feed = await generateFeed(nodes, allTexts, workspace)
 
     // ── Step 6: Generate decision briefs ─────────────────────────────────────
     await updateJob({ progress: 88, current_step: 'Generating decision briefs...' })
+    await new Promise(r => setTimeout(r, 4000)) // wait for TPM to recover
     const decisions = await generateDecisions(nodes, allTexts, workspace, feed)
 
     // ── Step 7: Save all outputs ──────────────────────────────────────────────
@@ -530,29 +564,53 @@ function generateFallbackDecisions(nodes, workspace) {
 
 // ── Groq API helpers ──────────────────────────────────────────────────────────
 
-async function callGroq(prompt, maxTokens = 2000, temperature = 0.2) {
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      // Use GROQ_API_KEY (server-side only), fallback to public key for backwards compat
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      max_tokens: maxTokens,
-    }),
-  })
+async function callGroq(prompt, maxTokens = 2000, temperature = 0.2, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        max_tokens: maxTokens,
+      }),
+    })
 
-  if (!res.ok) {
+    if (res.ok) {
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || ''
+    }
+
     const errText = await res.text()
+
+    // Rate limit — parse retry-after and wait if reasonable
+    if (res.status === 429) {
+      let waitMs = 0
+      try {
+        const errJson = JSON.parse(errText)
+        const msg = errJson?.error?.message || ''
+        const match = msg.match(/try again in (\d+)m([\d.]+)s/)
+        if (match) {
+          const mins = parseInt(match[1])
+          const secs = parseFloat(match[2])
+          waitMs = (mins * 60 + secs) * 1000
+        }
+      } catch { /* ignore */ }
+
+      // Only wait if under 2 minutes — otherwise throw immediately
+      if (waitMs > 0 && waitMs <= 120_000 && attempt < retries) {
+        console.log(`[groq] Rate limited. Waiting ${Math.round(waitMs/1000)}s before retry...`)
+        await new Promise(r => setTimeout(r, waitMs + 1000))
+        continue
+      }
+    }
+
     throw new Error(`Groq API error ${res.status}: ${errText}`)
   }
-
-  const data = await res.json()
-  return data.choices?.[0]?.message?.content || ''
 }
 
 function parseGroqJSON(raw) {

@@ -822,12 +822,13 @@ function NewWorkspaceInner() {
       }),
     })
 
-    // Kick off processing pipeline
-    await fetch('/api/process/start', {
+    // Kick off processing pipeline — don't await, redirect immediately
+    // The pipeline runs server-side; dashboard polls /api/process/status
+    fetch('/api/process/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workspace_id: wsId, user_id: user.id }),
-    })
+    }).catch(err => console.error('Pipeline start error:', err))
 
     sessionStorage.removeItem('neptune_new_ws')
     window.location.href = `/dashboard?processing=${wsId}`
