@@ -15,9 +15,11 @@ const DOMAINS = [
   { id: 'society',     label: 'Society',      color: '#7050b8', icon: '◎' },
 ]
 
-const STEPS = ['BASICS', 'DOMAINS', 'SOURCES', 'STORAGE', 'REVIEW']
+const STEPS_PERSONAL = ['BASICS', 'DOMAINS', 'SOURCES', 'STORAGE', 'REVIEW']
+const STEPS_COLLABORATIVE = ['BASICS', 'MEMBERS', 'DOMAINS', 'SOURCES', 'STORAGE', 'REVIEW']
 
-function StepIndicator({ current }) {
+function StepIndicator({ current, isCollaborative }) {
+  const STEPS = isCollaborative ? STEPS_COLLABORATIVE : STEPS_PERSONAL
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 48 }}>
       {STEPS.map((step, i) => {
@@ -108,6 +110,261 @@ function StepBasics({ data, onChange }) {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function StepMembers({ data, onChange }) {
+  const [inviteMethod, setInviteMethod] = useState(data.inviteMethod || null)
+  const [memberCount, setMemberCount] = useState(data.memberCount || 2)
+  const [customCount, setCustomCount] = useState('')
+  const [members, setMembers] = useState(data.members || [])
+  const [inviteLink, setInviteLink] = useState(data.inviteLink || '')
+  
+  const updateData = (updates) => {
+    onChange({ ...data, ...updates })
+  }
+
+  const selectMethod = (method) => {
+    setInviteMethod(method)
+    updateData({ inviteMethod: method })
+  }
+
+  const selectCount = (count) => {
+    setMemberCount(count)
+    const newMembers = Array(count).fill(null).map((_, i) => 
+      members[i] || { email: '', role: 'viewer' }
+    )
+    setMembers(newMembers)
+    updateData({ memberCount: count, members: newMembers })
+  }
+
+  const updateMember = (index, field, value) => {
+    const newMembers = [...members]
+    newMembers[index] = { ...newMembers[index], [field]: value }
+    setMembers(newMembers)
+    updateData({ members: newMembers })
+  }
+
+  const generateInviteLink = () => {
+    // Generate temporary link (will be replaced with real workspace ID after creation)
+    const link = `${window.location.origin}/workspace/invite/pending`
+    setInviteLink(link)
+    updateData({ inviteLink: link })
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div>
+        <div style={{ fontSize: 26, fontFamily: 'var(--font-display)', letterSpacing: 4, color: '#ddeeff', marginBottom: 8 }}>ADD MEMBERS</div>
+        <div style={{ fontSize: 14, color: '#6a9aba', lineHeight: 1.6 }}>Choose how you want to invite collaborators to this workspace.</div>
+      </div>
+
+      {/* Method Selection */}
+      {!inviteMethod && (
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={() => selectMethod('link')} style={{
+            flex: 1, padding: '22px 20px', textAlign: 'left',
+            background: 'rgba(8,13,31,0.6)',
+            border: '1px solid rgba(58,110,200,0.2)',
+            color: '#ddeeff', fontFamily: 'var(--font-mono)',
+            transition: 'all 0.2s', cursor: 'pointer',
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'}
+          >
+            <div style={{ fontSize: 20, marginBottom: 10 }}>🔗</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Invite via Link</div>
+            <div style={{ fontSize: 12, color: '#6a9aba', lineHeight: 1.5 }}>
+              Generate a shareable link. Anyone with the link can join as a viewer.
+            </div>
+          </button>
+
+          <button onClick={() => selectMethod('manual')} style={{
+            flex: 1, padding: '22px 20px', textAlign: 'left',
+            background: 'rgba(8,13,31,0.6)',
+            border: '1px solid rgba(58,110,200,0.2)',
+            color: '#ddeeff', fontFamily: 'var(--font-mono)',
+            transition: 'all 0.2s', cursor: 'pointer',
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'}
+          >
+            <div style={{ fontSize: 20, marginBottom: 10 }}>✉️</div>
+            <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Add Members Manually</div>
+            <div style={{ fontSize: 12, color: '#6a9aba', lineHeight: 1.5 }}>
+              Enter email addresses and assign roles (editor or viewer).
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Invite Link Method */}
+      {inviteMethod === 'link' && (
+        <div style={{ padding: '20px', border: '1px solid rgba(61,123,212,0.2)', background: 'rgba(61,123,212,0.04)' }}>
+          <div style={{ fontSize: 13, letterSpacing: 2, color: '#7aaeee', marginBottom: 12 }}>INVITE LINK</div>
+          <div style={{ fontSize: 12, color: '#6a9aba', marginBottom: 14, lineHeight: 1.6 }}>
+            Share this link with anyone you want to invite. They'll be added as viewers and can be upgraded to editors later.
+          </div>
+          
+          {!inviteLink ? (
+            <button onClick={generateInviteLink} style={{
+              padding: '10px 18px', background: 'rgba(61,123,212,0.12)',
+              border: '1px solid rgba(61,123,212,0.5)', color: '#7aaeee',
+              fontSize: 13, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(61,123,212,0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(61,123,212,0.12)'}
+            >
+              Generate Invite Link
+            </button>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input 
+                  type="text" 
+                  value={inviteLink} 
+                  readOnly 
+                  style={{
+                    flex: 1, padding: '10px 12px', background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(58,110,200,0.25)', color: '#ddeeff',
+                    fontSize: 12, fontFamily: 'var(--font-mono)',
+                  }}
+                />
+                <button onClick={() => navigator.clipboard.writeText(inviteLink)} style={{
+                  padding: '10px 18px', background: 'rgba(42,158,88,0.12)',
+                  border: '1px solid rgba(42,158,88,0.5)', color: '#2a9e58',
+                  fontSize: 12, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+                }}>
+                  Copy
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: '#4a6b8a' }}>
+                ℹ️ Link will be activated after workspace creation
+              </div>
+            </div>
+          )}
+          
+          <button onClick={() => selectMethod(null)} style={{
+            marginTop: 14, padding: '8px 14px', background: 'transparent',
+            border: '1px solid rgba(58,110,200,0.2)', color: '#6a9aba',
+            fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+          }}>
+            ← Change Method
+          </button>
+        </div>
+      )}
+
+      {/* Manual Method - Member Count */}
+      {inviteMethod === 'manual' && members.length === 0 && (
+        <div style={{ padding: '20px', border: '1px solid rgba(61,123,212,0.2)', background: 'rgba(61,123,212,0.04)' }}>
+          <div style={{ fontSize: 13, letterSpacing: 2, color: '#7aaeee', marginBottom: 12 }}>HOW MANY MEMBERS?</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 12 }}>
+            {[1, 2, 3, 4].map(count => (
+              <button key={count} onClick={() => selectCount(count)} style={{
+                padding: '14px', background: 'rgba(8,13,31,0.6)',
+                border: '1px solid rgba(58,110,200,0.2)', color: '#ddeeff',
+                fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-mono)',
+                cursor: 'pointer', transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(61,123,212,0.5)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(58,110,200,0.2)'}
+              >
+                {count}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input 
+              type="number" 
+              min="1" 
+              max="20"
+              placeholder="Custom..."
+              value={customCount}
+              onChange={e => setCustomCount(e.target.value)}
+              style={{
+                flex: 1, padding: '10px 12px', background: 'rgba(8,13,31,0.8)',
+                border: '1px solid rgba(58,110,200,0.25)', color: '#ddeeff',
+                fontSize: 13, fontFamily: 'var(--font-mono)',
+              }}
+            />
+            <button onClick={() => customCount && selectCount(parseInt(customCount))} style={{
+              padding: '10px 18px', background: 'rgba(61,123,212,0.12)',
+              border: '1px solid rgba(61,123,212,0.5)', color: '#7aaeee',
+              fontSize: 12, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+            }}>
+              Set
+            </button>
+          </div>
+          
+          <button onClick={() => selectMethod(null)} style={{
+            marginTop: 14, padding: '8px 14px', background: 'transparent',
+            border: '1px solid rgba(58,110,200,0.2)', color: '#6a9aba',
+            fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+          }}>
+            ← Change Method
+          </button>
+        </div>
+      )}
+
+      {/* Manual Method - Member Details */}
+      {inviteMethod === 'manual' && members.length > 0 && (
+        <div style={{ padding: '20px', border: '1px solid rgba(61,123,212,0.2)', background: 'rgba(61,123,212,0.04)' }}>
+          <div style={{ fontSize: 13, letterSpacing: 2, color: '#7aaeee', marginBottom: 12 }}>MEMBER DETAILS</div>
+          <div style={{ fontSize: 12, color: '#6a9aba', marginBottom: 14, lineHeight: 1.6 }}>
+            Enter email addresses (must match Google auth). You'll be added as owner automatically.
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {members.map((member, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#4a6b8a', width: 30 }}>{i + 1}.</span>
+                <input 
+                  type="email"
+                  placeholder="email@example.com"
+                  value={member.email}
+                  onChange={e => updateMember(i, 'email', e.target.value)}
+                  style={{
+                    flex: 1, padding: '10px 12px', background: 'rgba(8,13,31,0.8)',
+                    border: '1px solid rgba(58,110,200,0.25)', color: '#ddeeff',
+                    fontSize: 13, fontFamily: 'var(--font-mono)',
+                  }}
+                />
+                <select 
+                  value={member.role}
+                  onChange={e => updateMember(i, 'role', e.target.value)}
+                  style={{
+                    padding: '10px 12px', background: 'rgba(8,13,31,0.8)',
+                    border: '1px solid rgba(58,110,200,0.25)', color: '#ddeeff',
+                    fontSize: 13, fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+              </div>
+            ))}
+          </div>
+          
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <button onClick={() => selectCount(members.length + 1)} style={{
+              padding: '8px 14px', background: 'rgba(42,158,88,0.12)',
+              border: '1px solid rgba(42,158,88,0.5)', color: '#2a9e58',
+              fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+            }}>
+              + Add Another
+            </button>
+            <button onClick={() => { setMembers([]); updateData({ members: [], memberCount: 0 }) }} style={{
+              padding: '8px 14px', background: 'transparent',
+              border: '1px solid rgba(58,110,200,0.2)', color: '#6a9aba',
+              fontSize: 11, fontFamily: 'var(--font-mono)', cursor: 'pointer',
+            }}>
+              ← Change Count
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -453,6 +710,11 @@ function NewWorkspaceInner() {
       name: '', description: '', isCollaborative: false,
       domains: [], staticSources: [], dynamicSources: [], keywords: [],
       storageBackend: '',
+      // Collaboration fields
+      inviteMethod: null, // 'link' or 'manual'
+      inviteLink: '',
+      memberCount: 0,
+      members: [], // [{ email, role }]
     }
   })
 
@@ -463,10 +725,23 @@ function NewWorkspaceInner() {
   const driveConnected = searchParams.get('drive_connected') === '1'
   const driveError     = searchParams.get('drive_error')
 
+  const STEPS = formData.isCollaborative ? STEPS_COLLABORATIVE : STEPS_PERSONAL
+  
+  const getStepIndex = (stepName) => STEPS.indexOf(stepName)
+  const getCurrentStepName = () => STEPS[step]
+
   const canNext = () => {
-    if (step === 0) return formData.name.trim().length >= 2
-    if (step === 1) return (formData.domains || []).length > 0
-    if (step === 3) return !!formData.storageBackend && (formData.storageBackend !== 'drive' || driveConnected)
+    const currentStepName = getCurrentStepName()
+    if (currentStepName === 'BASICS') return formData.name.trim().length >= 2
+    if (currentStepName === 'MEMBERS') {
+      if (!formData.inviteMethod) return false
+      if (formData.inviteMethod === 'manual') {
+        return (formData.members || []).length > 0 && (formData.members || []).every(m => m?.email?.trim())
+      }
+      return true // Link method is always valid once selected
+    }
+    if (currentStepName === 'DOMAINS') return (formData.domains || []).length > 0
+    if (currentStepName === 'STORAGE') return !!formData.storageBackend && (formData.storageBackend !== 'drive' || driveConnected)
     return true
   }
 
@@ -482,8 +757,49 @@ function NewWorkspaceInner() {
       storage_backend: formData.storageBackend || 'drive',
       is_active: true, member_count: 1, node_count: 0, edge_count: 0,
     }).select().single()
+    
+    if (error) { 
+      setSaving(false)
+      setError(error.message)
+      return null 
+    }
+    
+    // Fallback: Ensure owner is added as member if trigger didn't fire
+    const { data: memberCheck } = await supabase
+      .from('workspace_members')
+      .select('id')
+      .eq('workspace_id', data.id)
+      .eq('user_id', user.id)
+      .single()
+    
+    if (!memberCheck) {
+      await supabase.from('workspace_members').insert({
+        workspace_id: data.id,
+        user_id: user.id,
+        role: 'owner',
+        status: 'active',
+        joined_at: new Date().toISOString(),
+      })
+    }
+    
+    // Handle member invites if collaborative
+    if (formData.isCollaborative && formData.inviteMethod === 'manual' && (formData.members || []).length > 0) {
+      for (const member of formData.members || []) {
+        if (member?.email?.trim()) {
+          await fetch(`/api/workspace/${data.id}/invite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: user.id,
+              email: member.email.trim(),
+              role: member.role || 'viewer',
+            }),
+          })
+        }
+      }
+    }
+    
     setSaving(false)
-    if (error) { setError(error.message); return null }
     setWorkspaceId(data.id)
     return data.id
   }
@@ -543,14 +859,15 @@ function NewWorkspaceInner() {
       {/* Form */}
       <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '52px 24px 80px' }}>
         <div style={{ width: '100%', maxWidth: 680 }}>
-          <StepIndicator current={step} />
+          <StepIndicator current={step} isCollaborative={formData.isCollaborative} />
 
           <div style={{ minHeight: 420 }}>
-            {step === 0 && <StepBasics   data={formData} onChange={setFormData} />}
-            {step === 1 && <StepDomains  data={formData} onChange={setFormData} />}
-            {step === 2 && <StepSources  data={formData} onChange={setFormData} />}
-            {step === 3 && <StepStorage  data={formData} onChange={setFormData} workspaceId={workspaceId} userId={user?.id} driveConnected={driveConnected} driveError={driveError} onCreateWorkspace={createWorkspaceNow} />}
-            {step === 4 && <StepReview   data={formData} />}
+            {getCurrentStepName() === 'BASICS' && <StepBasics data={formData} onChange={setFormData} />}
+            {getCurrentStepName() === 'MEMBERS' && <StepMembers data={formData} onChange={setFormData} />}
+            {getCurrentStepName() === 'DOMAINS' && <StepDomains data={formData} onChange={setFormData} />}
+            {getCurrentStepName() === 'SOURCES' && <StepSources data={formData} onChange={setFormData} />}
+            {getCurrentStepName() === 'STORAGE' && <StepStorage data={formData} onChange={setFormData} workspaceId={workspaceId} userId={user?.id} driveConnected={driveConnected} driveError={driveError} onCreateWorkspace={createWorkspaceNow} />}
+            {getCurrentStepName() === 'REVIEW' && <StepReview data={formData} />}
           </div>
 
           {error && (

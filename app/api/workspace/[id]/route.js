@@ -21,13 +21,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 })
     }
 
-    // Check if user has access
-    const canView = await hasPermission(id, userId, PERMISSIONS.VIEW_WORKSPACE)
-    if (!canView) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-    }
-
-    // Get workspace with member info
+    // Get workspace first to check ownership
     const { data: workspace, error: workspaceError } = await supabaseAdmin
       .from('workspaces')
       .select('*')
@@ -38,7 +32,18 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
     }
 
-    // Get user's role
+    // Check if user is owner OR has permission via members table
+    const isOwner = String(workspace.owner_id) === String(userId)
+    
+    if (!isOwner) {
+      // Only check permissions if not owner
+      const canView = await hasPermission(id, userId, PERMISSIONS.VIEW_WORKSPACE)
+      if (!canView) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
+    }
+
+    // Get user's role from workspace_members
     const { data: member } = await supabaseAdmin
       .from('workspace_members')
       .select('role')
@@ -47,9 +52,30 @@ export async function GET(request, { params }) {
       .eq('status', 'active')
       .single()
 
+    // CRITICAL: Owner check takes precedence over member table
+    const role = isOwner ? 'owner' : (member?.role || null)
+    
+    console.log('[Workspace API] Role resolution', {
+      workspaceId: id,
+      ownerId: workspace.owner_id,
+      ownerIdType: typeof workspace.owner_id,
+      userId,
+      userIdType: typeof userId,
+      isOwner,
+      memberRole: member?.role,
+      finalRole: role
+    })
+
     return NextResponse.json({ 
-      workspace, 
-      role: member?.role || null 
+      workspace: {
+        id: workspace.id,
+        name: workspace.name,
+        owner_id: workspace.owner_id,
+        domains: workspace.domains,
+        is_collaborative: workspace.is_collaborative,
+        created_at: workspace.created_at,
+      },
+      role 
     })
   } catch (err) {
     console.error('[get workspace]', err)

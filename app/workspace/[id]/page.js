@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { use } from 'react'
 import { withAuth } from '@/app/dashboard/withAuth'
 import { useAuth } from '@/context/AuthContext'
+import { useWorkspaceCollaboration } from '@/lib/useWorkspaceCollaboration'
 import Sidebar from '@/components/ui/Sidebar'
 import GraphCanvas from '@/components/graph/GraphCanvas'
 import FeedPanel from '@/components/ui/FeedPanel'
@@ -31,12 +32,30 @@ function WorkspacePage({ params }) {
   // Entity to auto-select from URL param
   const [initialEntityId, setInitialEntityId] = useState(null)
 
+  // Collaborative workspace features
+  const collaboration = useWorkspaceCollaboration(id)
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const entityId = params.get('entity')
     if (entityId) setInitialEntityId(entityId)
   }, [])
+
+  // Listen for graph updates from other users
+  useEffect(() => {
+    const handleGraphUpdate = async () => {
+      if (!id || !user) return
+      const res = await fetch(`/api/workspace/${id}/graph?user_id=${user.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        const nodes = (data.nodes || []).map(n => ({ ...n, label: n.label || n.name }))
+        setGraphData({ nodes, edges: data.edges || [] })
+      }
+    }
+    window.addEventListener('workspace:graph-updated', handleGraphUpdate)
+    return () => window.removeEventListener('workspace:graph-updated', handleGraphUpdate)
+  }, [id, user])
 
   // ── Load graph + context in parallel ───────────────────────────────────────
   useEffect(() => {
@@ -65,30 +84,41 @@ function WorkspacePage({ params }) {
 
         setGraphData({ nodes, edges })
 
-        // Build graphContext for AI queries
+        // Build graphContext for AI queries — use null workspaceName until context route confirms it
         const ctx = {
           nodeCount:     nodes.length,
           edgeCount:     edges.length,
           sampleNodes:   nodes.slice(0, 30).map(n => n.label || n.name),
-          workspaceName: graphRaw.workspace_name || 'Intelligence Workspace',
+          workspaceName: null,
           domains:       graphRaw.domains || [],
+          userId:        user.id,
         }
         setGraphContext(ctx)
 
         // Context (feed + decisions + workspace meta) — non-blocking
         if (ctxRes.ok) {
           const ctxData = await ctxRes.json()
-          setWorkspace(ctxData.workspace || { id, name: graphRaw.workspace_name || 'Workspace' })
+          const workspaceData = ctxData.workspace || { id, name: graphRaw.workspace_name || 'Workspace' }
+          setWorkspace(workspaceData)
           setFeedData(ctxData.feed || null)
           setDecisionsData(ctxData.decisions || null)
-          // Enrich graphContext with workspace metadata from context
-          if (ctxData.workspace) {
-            setGraphContext(prev => ({
-              ...prev,
-              workspaceName: ctxData.workspace.name || prev.workspaceName,
-              domains:       ctxData.workspace.domains || prev.domains,
-            }))
-          }
+          
+          // Debug logging for role issues
+          console.log('[Workspace Page Debug]', {
+            workspaceId: id,
+            ownerId: workspaceData.owner_id,
+            currentUserId: user.id,
+            isOwner: workspaceData.owner_id === user.id,
+            collaborationRole: collaboration?.role,
+            collaborationCanEdit: collaboration?.canEdit,
+            collaborationCanManage: collaboration?.canManage
+          })
+          
+          setGraphContext(prev => ({
+            ...prev,
+            workspaceName: workspaceData.name || prev.workspaceName,
+            domains:       workspaceData.domains || prev.domains,
+          }))
         } else {
           setWorkspace({ id, name: graphRaw.workspace_name || 'Workspace' })
         }

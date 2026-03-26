@@ -20,14 +20,47 @@ export async function GET(request, { params }) {
     const limit = parseInt(searchParams.get('limit') || '50')
 
     if (!userId) {
+      console.error('[activity] Missing user_id in request')
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 })
     }
 
+    console.log('[activity] Checking access:', { workspaceId: id, userId, userIdType: typeof userId })
+
     // Check if user has access to view workspace
     const canView = await hasPermission(id, userId, PERMISSIONS.VIEW_WORKSPACE)
+    
     if (!canView) {
+      console.error('[activity] Access denied:', { workspaceId: id, userId })
+      
+      // Additional debugging - check workspace and membership
+      const { data: workspace } = await supabaseAdmin
+        .from('workspaces')
+        .select('owner_id')
+        .eq('id', id)
+        .single()
+      
+      const { data: member } = await supabaseAdmin
+        .from('workspace_members')
+        .select('role, status')
+        .eq('workspace_id', id)
+        .eq('user_id', userId)
+        .single()
+      
+      console.error('[activity] Debug info:', {
+        workspaceOwnerId: workspace?.owner_id,
+        ownerIdType: typeof workspace?.owner_id,
+        userId,
+        userIdType: typeof userId,
+        isOwnerStrict: workspace?.owner_id === userId,
+        isOwnerNormalized: String(workspace?.owner_id) === String(userId),
+        memberRole: member?.role,
+        memberStatus: member?.status,
+      })
+      
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
+
+    console.log('[activity] Access granted, fetching activities')
 
     // Build query
     let query = supabaseAdmin
@@ -51,12 +84,14 @@ export async function GET(request, { params }) {
     const { data: activities, error } = await query
 
     if (error) {
+      console.error('[activity] Database error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    console.log('[activity] Returning', activities?.length || 0, 'activities')
     return NextResponse.json({ activities })
   } catch (err) {
-    console.error('[get activity]', err)
+    console.error('[get activity] Exception:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

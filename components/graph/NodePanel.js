@@ -80,6 +80,11 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
   const [newRelationship, setNewRelationship] = useState('')
   const inputRef = useRef(null)
 
+  // Workspace-aware description — generated once per node, cached by node id
+  const [nodeDesc, setNodeDesc]         = useState('')
+  const [nodeDescLoading, setNodeDescLoading] = useState(false)
+  const descCacheRef = useRef({})
+
   useEffect(() => {
     if (graphData) {
       // Apply deduplication to incoming graph data
@@ -114,12 +119,82 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
     })
   }, [graphData, setGraphData])
 
+  // Reset on node change
   useEffect(() => {
     if (!selectedNode) return
-    setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
     setAiResponse('')
     setTab('overview')
-  }, [selectedNode, edges, nodes])
+    setNodeDesc('')
+    setNodeDescLoading(false)
+  }, [selectedNode])
+
+  // Update connected nodes when edges/nodes data loads or node changes
+  useEffect(() => {
+    if (!selectedNode || !nodes.length) return
+    setConnected(getConnectedNodes(selectedNode.id, edges, nodes))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode?.id, edges.length, nodes.length])
+
+  // Generate workspace-aware description — fires when BOTH node and graphContext.workspaceName are ready
+  useEffect(() => {
+    if (!selectedNode || !graphContext?.workspaceName) return
+
+    const cacheKey = `${selectedNode.id}__${graphContext.workspaceName}`
+
+    // Already cached — show immediately
+    if (descCacheRef.current[cacheKey]) {
+      setNodeDesc(descCacheRef.current[cacheKey])
+      setNodeDescLoading(false)
+      return
+    }
+
+    // Start loading
+    setNodeDescLoading(true)
+    setNodeDesc('')
+
+    const connectedNames = getConnectedNodes(selectedNode.id, edges, nodes)
+      .slice(0, 5).map(c => c.node.label).join(', ')
+
+    const domains = (graphContext.domains || []).join(', ') || 'general'
+    const prompt = `In 2-3 sentences, describe "${selectedNode.label}" in the context of the "${graphContext.workspaceName}" workspace (domains: ${domains}). Focus only on its role within these domains. ${connectedNames ? `Connected to: ${connectedNames}.` : ''}`
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+    fetch('/api/ai/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        graphContext: { workspaceName: graphContext.workspaceName, domains: graphContext.domains },
+        systemOverride: `You are an intelligence analyst. Describe the entity strictly within the context of the workspace topic. Never give a generic or geographic description. Always relate it to the workspace subject. 2-3 sentences only.`,
+      }),
+      signal: controller.signal,
+    })
+      .then(r => r.json())
+      .then(data => {
+        const desc = data.response?.trim() || ''
+        if (desc) {
+          descCacheRef.current[cacheKey] = desc
+          setNodeDesc(desc)
+        } else {
+          setNodeDesc(selectedNode.description || '')
+        }
+      })
+      .catch(() => {
+        setNodeDesc(selectedNode.description || '')
+      })
+      .finally(() => {
+        clearTimeout(timeoutId)
+        setNodeDescLoading(false)
+      })
+
+    // Cleanup: abort fetch if node changes before response arrives
+    return () => {
+      controller.abort()
+      clearTimeout(timeoutId)
+    }
+  }, [selectedNode?.id, graphContext?.workspaceName])
 
   const handleQuery = async () => {
     if (!query.trim()) return
@@ -362,9 +437,21 @@ export default function NodePanel({ selectedNode, setSelectedNode, graphData, gr
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Description */}
             <div style={glassCardStyle}>
-              <div style={glassCardTitleStyle}>Description</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={glassCardTitleStyle}>Description</div>
+                {nodeDescLoading && (
+                  <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                    {[0,1,2].map(i => (
+                      <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: color, animation: `pulse-dot 0.8s ${i*0.15}s infinite` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
               <p style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                {selectedNode.description || `${selectedNode.label} is a ${selectedNode.type} entity in the ${selectedNode.domain} domain of this knowledge graph.`}
+                {nodeDescLoading
+                  ? <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Generating workspace-aware description...</span>
+                  : nodeDesc || `${selectedNode.label} is a ${selectedNode.type} entity in the ${selectedNode.domain} domain.`
+                }
               </p>
             </div>
 

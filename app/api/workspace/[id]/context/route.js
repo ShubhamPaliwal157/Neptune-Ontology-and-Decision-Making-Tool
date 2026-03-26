@@ -37,6 +37,7 @@ export async function GET(request, { params }) {
       workspace: {
         id: workspace.id,
         name: workspace.name,
+        owner_id: workspace.owner_id,
         domains: workspace.domains || [],
         node_count: workspace.node_count || 0,
         edge_count: workspace.edge_count || 0,
